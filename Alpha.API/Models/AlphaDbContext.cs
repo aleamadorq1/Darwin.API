@@ -56,7 +56,7 @@ public partial class AlphaDbContext : DbContext
     {
         if (!optionsBuilder.IsConfigured)
         {
-            optionsBuilder.UseSqlite("Filename=./AlphaDB.db")
+            optionsBuilder.UseSqlite("Filename=./Database/AlphaDB.db")
                 .ConfigureWarnings(warnings =>
                 {
                     warnings.Default(WarningBehavior.Ignore)

@@ -43,6 +43,19 @@ namespace Alpha.API.Repositories
             }
         }
 
+                private async Task<T> GetById2Async(int id)
+        {
+            try
+            {
+                return await _dbSet.FindAsync(id);
+            }
+            catch (Exception ex)
+            {
+                // Log exception
+                throw new Exception($"Error fetching entity by ID: {ex.Message}", ex);
+            }
+        }
+
         public async Task<IEnumerable<T>> GetAllAsync()
         {
             try
