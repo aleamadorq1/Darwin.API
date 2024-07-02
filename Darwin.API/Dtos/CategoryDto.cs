@@ -1,5 +1,5 @@
 ﻿using System;
-namespace Alpha.API.Dtos
+namespace Darwin.API.Dtos
 {
     public class CategoryDto
     {

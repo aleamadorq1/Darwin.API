@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace Alpha.API.Models;
+namespace Darwin.API.Models;
 
 public partial class AlphaDbContext : DbContext
 {

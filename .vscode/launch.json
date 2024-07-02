@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "C#: Alpha.API [https]",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/Darwin.API/Darwin.API.csproj",
+            "launchConfigurationId": "TargetFramework=;https"
+        }
+    ]
+}

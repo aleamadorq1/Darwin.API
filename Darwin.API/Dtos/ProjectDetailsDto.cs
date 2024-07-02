@@ -1,4 +1,4 @@
-namespace Alpha.API.Dtos
+namespace Darwin.API.Dtos
 {
     public partial class ProjectDetailsDto
     {

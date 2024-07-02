@@ -1,10 +1,10 @@
 ﻿using System;
-using Alpha.API.Dtos;
-using Alpha.API.Models;
-using Alpha.API.Services;
+using Darwin.API.Dtos;
+using Darwin.API.Models;
+using Darwin.API.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Alpha.API.Controllers
+namespace Darwin.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

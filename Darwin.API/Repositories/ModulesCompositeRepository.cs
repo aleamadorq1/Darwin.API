@@ -1,11 +1,11 @@
-﻿using Alpha.API.Models;
-using Alpha.API.Repositories;
+﻿using Darwin.API.Models;
+using Darwin.API.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Alpha.API.Repositories
+namespace Darwin.API.Repositories
 {
     public interface IModulesCompositeRepository : IRepository<ModulesComposite>
     {

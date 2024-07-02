@@ -1,10 +1,10 @@
 ﻿using System.Linq.Expressions;
-using Alpha.API.Models;
+using Darwin.API.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System;
 
-namespace Alpha.API.Repositories
+namespace Darwin.API.Repositories
 {
     public interface IRepository<T> where T : class
     {

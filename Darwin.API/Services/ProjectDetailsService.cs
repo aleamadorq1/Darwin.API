@@ -1,11 +1,11 @@
 ﻿using System;
-using Alpha.API.Dtos;
-using Alpha.API.Models;
-using Alpha.API.Repositories;
+using Darwin.API.Dtos;
+using Darwin.API.Models;
+using Darwin.API.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
 
-namespace Alpha.API.Services
+namespace Darwin.API.Services
 {
     public interface IProjectDetailsService
     {

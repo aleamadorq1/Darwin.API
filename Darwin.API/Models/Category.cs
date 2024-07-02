@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Alpha.API.Models;
+namespace Darwin.API.Models;
 
 public partial class Category
 {
