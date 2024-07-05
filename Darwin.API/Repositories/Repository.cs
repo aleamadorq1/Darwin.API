@@ -1,8 +1,6 @@
 ﻿using System.Linq.Expressions;
 using Darwin.API.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
-using System;
 
 namespace Darwin.API.Repositories
 {
@@ -14,6 +12,7 @@ namespace Darwin.API.Repositories
         Task<T> UpdateAsync(T entity);
         Task<bool> DeleteAsync(int id);
         Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate);
+        Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes);
         Task<IEnumerable<T>> AddRangeAsync(IEnumerable<T> entities);
         Task UpdateRangeAsync(IEnumerable<T> entities);
         Task DeleteRangeAsync(IEnumerable<T> entities);
@@ -34,20 +33,7 @@ namespace Darwin.API.Repositories
         {
             try
             {
-                return await _dbSet.FindAsync(id);
-            }
-            catch (Exception ex)
-            {
-                // Log exception
-                throw new Exception($"Error fetching entity by ID: {ex.Message}", ex);
-            }
-        }
-
-                private async Task<T> GetById2Async(int id)
-        {
-            try
-            {
-                return await _dbSet.FindAsync(id);
+                return await _dbSet.FindAsync(id) ?? throw new KeyNotFoundException();
             }
             catch (Exception ex)
             {
@@ -186,5 +172,33 @@ namespace Darwin.API.Repositories
                 throw new Exception($"Error deleting range of entities: {ex.Message}", ex);
             }
         }
+
+        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+
+            // Apply includes
+            if (includes != null)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            // Apply predicate
+            query = query.Where(predicate);
+
+            try
+            {
+                return await query.AsNoTracking().ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error finding entities with includes: {ex.Message}", ex);
+            }
+        }
+
+
     }
 }

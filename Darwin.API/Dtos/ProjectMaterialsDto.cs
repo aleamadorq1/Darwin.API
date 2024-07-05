@@ -2,17 +2,18 @@ namespace Darwin.API.Dtos
 {
     public class ProjectMaterialDto
     {
-        public int? ProjectMaterialId { get; set; }
+        public int ProjectMaterialId { get; set; }
 
         public int ProjectId { get; set; }
 
         public int MaterialId { get; set; }
+        public string? MaterialName { get; set; } = null!;
 
-        public double UnitPrice { get; set; }
+        public double? UnitPrice { get; set; }
 
-        public string TaxStatus { get; set; } = null!;
+        public string? TaxStatus { get; set; } = null!;
 
-        public double CifPrice { get; set; }
+        public double? CifPrice { get; set; }
 
         public DateTime? LastModified { get; set; }
 

@@ -63,7 +63,6 @@ namespace Darwin.API.Services
             if (project == null) return null;
 
             var client = await _clientRepository.GetByIdAsync(project.ClientId);
-            var organization = await _organizationRepository.GetByIdAsync(project.OrganizationId ?? 0);
 
             return new ProjectDto
             {
@@ -80,7 +79,7 @@ namespace Darwin.API.Services
                 LocationCoordinates = project.LocationCoordinates,
                 ProfitMargin = project.ProfitMargin,
                 OrganizationId = project.OrganizationId,
-                OrganizationName = organization?.OrganizationName,
+                OrganizationName = "Todo Organization",
             };
         }
 

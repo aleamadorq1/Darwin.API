@@ -21,14 +21,16 @@ namespace Darwin.API.Services
         private readonly IRepository<Module> _moduleRepository;
         private readonly IModuleMaterialsRepository _moduleMaterialRepository;
         private readonly IModulesLaborRepository _moduleLaborRepository;
+        private readonly IRepository<Models.System> _systemRepository;
         private readonly AlphaDbContext _context;
 
-        public ModuleService(IRepository<Module> moduleRepository, IModuleMaterialsRepository moduleMaterialsRepository, IModulesLaborRepository modulesLaborRepository, AlphaDbContext dbContext)
+        public ModuleService(IRepository<Module> moduleRepository, IModuleMaterialsRepository moduleMaterialsRepository, IModulesLaborRepository modulesLaborRepository, AlphaDbContext dbContext, IRepository<Models.System> systemRepository)
         {
             _moduleRepository = moduleRepository;
             _moduleMaterialRepository = moduleMaterialsRepository;
             _moduleLaborRepository = modulesLaborRepository;
             _context = dbContext;
+            _systemRepository = systemRepository;
         }
 
         public async Task<IEnumerable<Module>> GetAllModules()
@@ -59,11 +61,13 @@ namespace Darwin.API.Services
         public async Task<IEnumerable<ModuleIndexDto>> GetModuleIndex()
         {
             var modules = await _moduleRepository.GetAllAsync();
+            var systems = await _systemRepository.GetAllAsync();
+
             return modules.Select(m => new ModuleIndexDto
             {
                 ModuleId = m.ModuleId,
                 ModuleName = m.ModuleName,
-                ModuleType = m.ModuleType,
+                ModuleType = systems.FirstOrDefault(s => s.SystemId == m.SystemId)?.Description,
                 Description = m.Description
             }).ToList();
         }

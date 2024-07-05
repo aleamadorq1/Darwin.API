@@ -9,11 +9,11 @@ public partial class Module
 
     public string ModuleName { get; set; } = null!;
 
-    public string ModuleType { get; set; } = null!;
-
     public string Description { get; set; } = null!;
 
     public DateTime? LastModified { get; set; }
+
+    public int SystemId { get; set; }
 
     public virtual ICollection<ModuleCompositeDetail> ModuleCompositeDetails { get; set; } = new List<ModuleCompositeDetail>();
 
@@ -26,4 +26,6 @@ public partial class Module
     public virtual ICollection<ProjectMaterial> ProjectMaterials { get; set; } = new List<ProjectMaterial>();
 
     public virtual ICollection<ProjectModule> ProjectModules { get; set; } = new List<ProjectModule>();
+
+    public virtual System System { get; set; } = null!;
 }

@@ -11,7 +11,7 @@ public partial class ProjectModuleComposite
 
     public int ModuleCompositeId { get; set; }
 
-    public int Quantity { get; set; }
+    public double Quantity { get; set; }
 
     public virtual ModulesComposite ModuleComposite { get; set; } = null!;
 

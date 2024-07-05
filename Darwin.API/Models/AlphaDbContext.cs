@@ -137,7 +137,11 @@ public partial class AlphaDbContext : DbContext
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
             entity.Property(e => e.ModuleName).HasColumnName("module_name");
-            entity.Property(e => e.ModuleType).HasColumnName("module_type");
+            entity.Property(e => e.SystemId).HasColumnName("system_id");
+
+            entity.HasOne(d => d.System).WithMany(p => p.Modules)
+                .HasForeignKey(d => d.SystemId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<ModuleCompositeDetail>(entity =>
@@ -291,7 +295,6 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.HourlyRate).HasColumnName("hourly_rate");
             entity.Property(e => e.LaborId).HasColumnName("labor_id");
             entity.Property(e => e.LastModified)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
             entity.Property(e => e.ModuleId).HasColumnName("module_id");
@@ -316,7 +319,6 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.ProjectMaterialId).HasColumnName("project_material_id");
             entity.Property(e => e.CifPrice).HasColumnName("cif_price");
             entity.Property(e => e.LastModified)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
             entity.Property(e => e.MaterialId).HasColumnName("material_id");
@@ -387,6 +389,17 @@ public partial class AlphaDbContext : DbContext
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
             entity.Property(e => e.SupplierName).HasColumnName("supplier_name");
+        });
+
+                modelBuilder.Entity<System>(entity =>
+        {
+            entity.ToTable("Systems");
+            entity.HasIndex(e => e.SystemId, "IX_Systems_system_id").IsUnique();
+
+            entity.Property(e => e.SystemId).HasColumnName("system_id");
+            entity.Property(e => e.Description)
+                .HasColumnType("INTEGER")
+                .HasColumnName("description");
         });
 
         OnModelCreatingPartial(modelBuilder);
