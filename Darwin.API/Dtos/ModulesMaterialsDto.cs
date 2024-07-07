@@ -9,7 +9,6 @@ namespace Darwin.API.Dtos
         public int MaterialId { get; set; }
         public string MaterialName { get; set; }
         public double Quantity { get; set; }
-        public decimal Price { get; set; }
     }
 }
 

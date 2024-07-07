@@ -5,6 +5,8 @@ using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 
 
 namespace Darwin.API.Services
@@ -57,10 +59,10 @@ namespace Darwin.API.Services
             var existingLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId == null)).ToList();
             var existinModuleMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId != null)).ToList();
             var existingModuleLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId != null)).ToList();
-            var existingModules = (await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId, includes: [p => p.Module, p=>p.Module.ModulesMaterials, p=>p.Module.ModulesLabors])).ToList();
-            var existingModulesComposite = (await _projectModuleComposite.FindAsync(p => p.ProjectId == projectId, includes: [p => p.ModuleComposite, p =>p.ModuleComposite.ModuleCompositeDetails])).ToList();
-            var existingCompositeMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId != null && p.Module.ModuleCompositeDetails.Count() > 0, includes:[p=>p.Module.ModuleCompositeDetails])).ToList();
-            var existingCompositeLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId != null && p.Module.ModuleCompositeDetails.Count() > 0, includes:[p=>p.Module.ModuleCompositeDetails])).ToList();
+            var existingModules = (await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId, query => query.Include(p => p.Module), query => query.Include(p=>p.Module.ModulesMaterials), query=>query.Include(p=>p.Module.ModulesLabors))).ToList();
+            var existingModulesComposite = (await _projectModuleComposite.FindAsync(p => p.ProjectId == projectId, query =>query.Include(p => p.ModuleComposite), query => query.Include(p =>p.ModuleComposite.ModuleCompositeDetails))).ToList();
+            var existingCompositeMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId != null && p.Module.ModuleCompositeDetails.Count() > 0, query => query.Include(p=>p.Module.ModuleCompositeDetails))).ToList();
+            var existingCompositeLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId != null && p.Module.ModuleCompositeDetails.Count() > 0, query => query.Include(p=>p.Module.ModuleCompositeDetails))).ToList();
 
             var newMaterials = projectDetails.ProjectMaterials ?? new List<ProjectMaterialDto>();
             var newLabor = projectDetails.ProjectLabor ?? new List<ProjectLaborDto>();
@@ -170,7 +172,7 @@ namespace Darwin.API.Services
                         Quantity = moduleDto.Quantity
                     };
                     await _projectModuleRepository.AddAsync(newModule);
-                    var result = await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == newModule.ModuleId, includes: [p => p.Module, p=>p.Module.ModulesMaterials, p=>p.Module.ModulesLabors]); 
+                    var result = await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == newModule.ModuleId, query => query.Include(p => p.Module),query=>query.Include(p=>p.Module.ModulesMaterials), query=> query.Include(p=>p.Module.ModulesLabors)); 
                     existingModules.Add(result.FirstOrDefault());
                 }
 
@@ -201,7 +203,7 @@ namespace Darwin.API.Services
                             ModuleId = moduleDto.ModuleId
                         };
                         await _projectMaterialRepository.AddAsync(newProjectMaterial);
-                        var result = await _projectMaterialRepository.FindAsync(p => p.ProjectMaterialId == newProjectMaterial.ProjectMaterialId, includes:[p=>p.Module.ModuleCompositeDetails] );
+                        var result = await _projectMaterialRepository.FindAsync(p => p.ProjectMaterialId == newProjectMaterial.ProjectMaterialId, query => query.Include(p=>p.Module.ModuleCompositeDetails ));
                         existinModuleMaterials.Add(result.FirstOrDefault());
                     }
                 }
@@ -229,7 +231,7 @@ namespace Darwin.API.Services
                         };
                         await _projectLaborRepository.AddAsync(newProjectLabor);
 
-                        var result = await _projectLaborRepository.FindAsync(p=> p.ProjectLaborId == newProjectLabor.ProjectLaborId, includes:[p=>p.Module.ModuleCompositeDetails]);
+                        var result = await _projectLaborRepository.FindAsync(p=> p.ProjectLaborId == newProjectLabor.ProjectLaborId, query => query.Include(p=>p.Module.ModuleCompositeDetails));
                         existingModuleLabor.Add(result.FirstOrDefault());
                     }
                 }
@@ -266,7 +268,7 @@ namespace Darwin.API.Services
                     };
                     await _projectModuleComposite.AddAsync(newModuleComposite);
 
-                    var result = await _projectModuleComposite.FindAsync(p=>p.ProjectModuleCompositeId == newModuleComposite.ProjectModuleCompositeId, includes: [p => p.ModuleComposite, p =>p.ModuleComposite.ModuleCompositeDetails]);
+                    var result = await _projectModuleComposite.FindAsync(p=>p.ProjectModuleCompositeId == newModuleComposite.ProjectModuleCompositeId, query => query.Include(p => p.ModuleComposite), query => query.Include(p =>p.ModuleComposite.ModuleCompositeDetails));
                     existingModulesComposite.Add(result.FirstOrDefault());
                 }
 
@@ -301,7 +303,7 @@ namespace Darwin.API.Services
                                 ModuleId = detail.ModuleId
                             };
                             await _projectMaterialRepository.AddAsync(newCompositeMaterial);
-                            var result = await _projectMaterialRepository.FindAsync(cm=> cm.ProjectMaterialId == newCompositeMaterial.ProjectMaterialId, includes: [p => p.Module.ModuleCompositeDetails]);
+                            var result = await _projectMaterialRepository.FindAsync(cm=> cm.ProjectMaterialId == newCompositeMaterial.ProjectMaterialId, query => query.Include(p => p.Module.ModuleCompositeDetails));
                             existingCompositeMaterials.Add(result.FirstOrDefault());
                         }
                     }
@@ -328,7 +330,7 @@ namespace Darwin.API.Services
                                 ModuleId = detail.ModuleId
                             };
                             await _projectLaborRepository.AddAsync(newCompositeLabor);
-                            var result = await _projectLaborRepository.FindAsync(p=> p.ProjectLaborId == newCompositeLabor.ProjectLaborId, includes:[p=>p.Module.ModuleCompositeDetails]);
+                            var result = await _projectLaborRepository.FindAsync(p=> p.ProjectLaborId == newCompositeLabor.ProjectLaborId, query => query.Include(p=>p.Module.ModuleCompositeDetails));
                             existingCompositeLabor?.Add(result.FirstOrDefault());
                         }
                     }

@@ -12,8 +12,8 @@ namespace Darwin.API.Services
     {
         Task<IEnumerable<ModulesCompositeDto>> GetAllModulesComposites();
         Task<ModulesCompositeDto> GetModulesCompositeById(int id);
-        Task<ModulesComposite> AddModulesComposite(ModulesComposite modulesComposite);
-        Task<ModulesComposite> UpdateModulesComposite(ModulesComposite modulesComposite);
+        Task<ModulesCompositeDto> AddModulesComposite(ModulesCompositeDto modulesComposite);
+        Task<ModulesCompositeDto> UpdateModulesComposite(ModulesCompositeDto modulesComposite);
         Task<bool> DeleteModulesComposite(int id);
     }
 
@@ -66,32 +66,88 @@ namespace Darwin.API.Services
             };
         }
 
-        public async Task<ModulesComposite> AddModulesComposite(ModulesComposite modulesComposite)
+        public async Task<ModulesCompositeDto> AddModulesComposite(ModulesCompositeDto modulesComposite)
         {
-            var addedModulesComposite = await _modulesCompositeRepository.AddAsync(modulesComposite);
-
-            return addedModulesComposite;
-        }
-
-
-        public async Task<ModulesComposite> UpdateModulesComposite(ModulesComposite modulesComposite)
-        {
-            await _modulesCompositeRepository.UpdateAsync(modulesComposite);
-
-            // Delete Modules
-            var existingModuleDetails = await _modulesCompositeRepository.GetByModuleCompositeIdAsync(modulesComposite.ModuleCompositeId);
-
-            await _modulesCompositeDetailRepository.DeleteRangeAsync(existingModuleDetails);
-
-
-            // Add new labor and material records
-            await _modulesCompositeDetailRepository.AddRangeAsync(modulesComposite.ModuleCompositeDetails);
+            var newModuleComposite = new ModulesComposite
+            {
+                CompositeName = modulesComposite.CompositeName,
+                Description = modulesComposite.Description,
+                ModuleCompositeDetails = modulesComposite.ModuleCompositeDetails.Select(mcd => new ModuleCompositeDetail
+                {
+                    ModuleId = mcd.ModuleId,
+                    Quantity = mcd.Quantity
+                }).ToList()
+            };
+            var addedModulesComposite = await _modulesCompositeRepository.AddAsync(newModuleComposite);
 
             return modulesComposite;
         }
 
+
+        public async Task<ModulesCompositeDto> UpdateModulesComposite(ModulesCompositeDto modulesComposite)
+        {
+            var existingModulesComposite = await _modulesCompositeRepository.GetByIdAsync(modulesComposite.ModuleCompositeId);
+            if (existingModulesComposite == null) return null;
+
+            existingModulesComposite.CompositeName = modulesComposite.CompositeName;
+            existingModulesComposite.Description = modulesComposite.Description;
+
+            var updatedModulesComposite = await _modulesCompositeRepository.UpdateAsync(existingModulesComposite);
+
+            var existingModuleCompositeDetails = await _modulesCompositeDetailRepository.FindAsync(mcd => mcd.ModuleCompositeId == modulesComposite.ModuleCompositeId);
+
+            // Update and remove existing details
+            foreach (var existingModuleCompositeDetail in existingModuleCompositeDetails)
+            {
+                var moduleCompositeDetail = modulesComposite.ModuleCompositeDetails.FirstOrDefault(mcd => mcd.ModuleCompositeDetailId == existingModuleCompositeDetail.ModuleCompositeDetailId);
+                if (moduleCompositeDetail == null)
+                {
+                    await _modulesCompositeDetailRepository.DeleteAsync(existingModuleCompositeDetail.ModuleCompositeDetailId);
+                }
+                else
+                {
+                    existingModuleCompositeDetail.ModuleId = moduleCompositeDetail.ModuleId;
+                    existingModuleCompositeDetail.Quantity = moduleCompositeDetail.Quantity;
+                    await _modulesCompositeDetailRepository.UpdateAsync(existingModuleCompositeDetail);
+                }
+            }
+
+            // Add new details
+            foreach (var moduleCompositeDetail in modulesComposite.ModuleCompositeDetails)
+            {
+                if (!existingModuleCompositeDetails.Any(mcd => mcd.ModuleCompositeDetailId == moduleCompositeDetail.ModuleCompositeDetailId))
+                {
+                    var newModuleCompositeDetail = new ModuleCompositeDetail
+                    {
+                        ModuleCompositeId = modulesComposite.ModuleCompositeId,
+                        ModuleId = moduleCompositeDetail.ModuleId,
+                        Quantity = moduleCompositeDetail.Quantity
+                    };
+                    await _modulesCompositeDetailRepository.AddAsync(newModuleCompositeDetail);
+                }
+            }
+
+            // Return the updated DTO
+            return new ModulesCompositeDto
+            {
+                ModuleCompositeId = updatedModulesComposite.ModuleCompositeId,
+                CompositeName = updatedModulesComposite.CompositeName,
+                Description = updatedModulesComposite.Description,
+                ModuleCompositeDetails = (await _modulesCompositeDetailRepository.FindAsync(mcd => mcd.ModuleCompositeId == updatedModulesComposite.ModuleCompositeId)).Select(mcd => new ModuleCompositeDetailDto
+                {
+                    ModuleCompositeDetailId = mcd.ModuleCompositeDetailId,
+                    ModuleId = mcd.ModuleId,
+                    ModuleName = mcd.Module?.ModuleName,
+                    Quantity = mcd.Quantity
+                }).ToList()
+            };
+        }
+
+
         public async Task<bool> DeleteModulesComposite(int id)
         {
+            var moduleCompositeDetails = await _modulesCompositeDetailRepository.FindAsync(mcd => mcd.ModuleCompositeId == id);
+            await _modulesCompositeDetailRepository.DeleteRangeAsync(moduleCompositeDetails);
             return await _modulesCompositeRepository.DeleteAsync(id);
         }
     }

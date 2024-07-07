@@ -30,15 +30,27 @@ namespace Darwin.API.Controllers
         }
 
         [HttpGet("{id}/costs")]
-        public async Task<ActionResult<IEnumerable<ProjectModuleDto>>> GetProjectCosts(int id)
+        public async Task<ActionResult<IEnumerable<ProjectCostDetailsDto>>> GetProjectCosts(int id)
         {
-            var result = await _projectCostsService.GetProjectModules(id);
+            var result = await _projectCostsService.GetProjectCosts(id);
             if (result == null)
             {
                 return NotFound();
             }
             return Ok(result);
         }
+
+        [HttpPut("{id}/costs")]
+        public async Task<ActionResult<IEnumerable<ProjectModuleDto>>> UpdateProjectCosts(ProjectCostDetailsDto project, int id)
+        {
+            var result = await _projectCostsService.UpdateProjectCosts(project);
+            if (result == null)
+            {
+                return NotFound();
+            }
+            return Ok(id);
+        }
+
 
         [HttpPost("{id}")]
         public async Task<ActionResult> UpsertProjectDetails(ProjectDetailsDto projectDetails, int id)

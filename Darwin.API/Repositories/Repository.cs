@@ -1,6 +1,7 @@
 ﻿using System.Linq.Expressions;
 using Darwin.API.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace Darwin.API.Repositories
 {
@@ -12,7 +13,10 @@ namespace Darwin.API.Repositories
         Task<T> UpdateAsync(T entity);
         Task<bool> DeleteAsync(int id);
         Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate);
-        Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes);
+        Task<IEnumerable<T>> FindAsync(
+            Expression<Func<T, bool>> predicate,
+            params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes);
+            
         Task<IEnumerable<T>> AddRangeAsync(IEnumerable<T> entities);
         Task UpdateRangeAsync(IEnumerable<T> entities);
         Task DeleteRangeAsync(IEnumerable<T> entities);
@@ -173,16 +177,18 @@ namespace Darwin.API.Repositories
             }
         }
 
-        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes)
+        public async Task<IEnumerable<T>> FindAsync(
+            Expression<Func<T, bool>> predicate,
+            params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes)
         {
             IQueryable<T> query = _dbSet;
 
-            // Apply includes
+            // Apply includes and thenIncludes
             if (includes != null)
             {
                 foreach (var include in includes)
                 {
-                    query = query.Include(include);
+                    query = include(query);
                 }
             }
 
@@ -198,6 +204,8 @@ namespace Darwin.API.Repositories
                 throw new Exception($"Error finding entities with includes: {ex.Message}", ex);
             }
         }
+
+
 
 
     }

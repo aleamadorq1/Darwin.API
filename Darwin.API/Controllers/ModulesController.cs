@@ -42,7 +42,7 @@ namespace Darwin.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateModule(int id, Module module)
+        public async Task<IActionResult> UpdateModule(int id, ModuleDto module)
         {
             if (id != module.ModuleId)
             {
@@ -61,7 +61,7 @@ namespace Darwin.API.Controllers
         }
 
         [HttpGet("index")]
-        public async Task<ActionResult<IEnumerable<ModuleIndexDto>>> GetModuleIndex()
+        public async Task<ActionResult<IEnumerable<ModuleDto>>> GetModuleIndex()
         {
             return Ok(await _moduleService.GetModuleIndex());
         }

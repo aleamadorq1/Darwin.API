@@ -34,14 +34,14 @@ namespace Darwin.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Material>> AddMaterial(Material material)
+        public async Task<ActionResult<MaterialDto>> AddMaterial(MaterialDto material)
         {
             var newMaterial = await _materialService.AddMaterial(material);
             return CreatedAtAction(nameof(GetMaterialById), new { id = newMaterial.MaterialId }, newMaterial);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateMaterial(int id, Material material)
+        public async Task<IActionResult> UpdateMaterial(int id, MaterialDto material)
         {
             if (id != material.MaterialId)
             {
@@ -60,7 +60,7 @@ namespace Darwin.API.Controllers
         }
 
         [HttpGet("index")]
-        public async Task<ActionResult<IEnumerable<MaterialIndexDto>>> GetMaterialIndex()
+        public async Task<ActionResult<IEnumerable<MaterialDto>>> GetMaterialIndex()
         {
             return Ok(await _materialService.GetMaterialIndex());
         }

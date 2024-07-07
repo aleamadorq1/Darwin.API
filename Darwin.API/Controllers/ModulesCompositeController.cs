@@ -36,14 +36,14 @@ namespace Darwin.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ModulesComposite>> AddModulesComposite(ModulesComposite modulesComposite)
+        public async Task<ActionResult<ModulesCompositeDto>> AddModulesComposite(ModulesCompositeDto modulesComposite)
         {
             var newModulesComposite = await _modulesCompositeService.AddModulesComposite(modulesComposite);
             return NoContent();
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateModulesComposite(int id, ModulesComposite modulesComposite)
+        public async Task<IActionResult> UpdateModulesComposite(int id, ModulesCompositeDto modulesComposite)
         {
             if (id != modulesComposite.ModuleCompositeId)
             {

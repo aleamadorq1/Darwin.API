@@ -56,6 +56,7 @@ builder.Services.AddScoped<IModulesCompositeService, ModulesCompositeService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectDetailsService, ProjectDetailService>();
 builder.Services.AddScoped<IProjectCostsService, ProjectCostsService>();
+builder.Services.AddScoped<ISystemService, SystemService>();
 
 var app = builder.Build();
 
