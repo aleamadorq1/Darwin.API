@@ -75,6 +75,7 @@ namespace Darwin.API.Services
                 ClientName = client?.ClientName,
                 TotalArea = project.TotalArea,
                 Location = project.Location,
+                DistributionCenterId = project.DistributionCenterId??0,
                 LocationAddress = project.LocationAddress,
                 LocationCoordinates = project.LocationCoordinates,
                 ProfitMargin = project.ProfitMargin,
@@ -94,6 +95,7 @@ namespace Darwin.API.Services
                 ClientId = project.ClientId,
                 TotalArea = project.TotalArea,
                 TotalFloors = project.TotalFloors,
+                DistributionCenterId = project.DistributionCenterId,
                 Location = project.Location,
                 LocationAddress = project.LocationAddress,
                 LocationCoordinates = project.LocationCoordinates,
@@ -115,6 +117,7 @@ namespace Darwin.API.Services
             existingProject.EndDate = project.EndDate;
             existingProject.ClientId = project.ClientId;
             existingProject.TotalArea = project.TotalArea;
+            //existingProject.DistributionCenterId = project.DistributionCenterId;
             existingProject.TotalFloors = project.TotalFloors;
             existingProject.Location = project.Location;    
             existingProject.LocationAddress = project.LocationAddress;

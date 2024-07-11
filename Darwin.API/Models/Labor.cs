@@ -13,7 +13,9 @@ public partial class Labor
 
     public string Description { get; set; } = null!;
 
-    public DateTime? LastModified { get; set; }
+    public DateTime LastModified { get; set; }
+
+    public double MinAllowance { get; set; }
 
     public virtual ICollection<ModulesLabor> ModulesLabors { get; set; } = new List<ModulesLabor>();
 

@@ -43,7 +43,7 @@ namespace Darwin.API.Services
             var result =await _moduleRepository.FindAsync(m=>m.ModuleId == id, query =>query.Include(m => m.ModulesMaterials).ThenInclude(m=>m.Material), query=>query.Include(m => m.ModulesLabors).ThenInclude(l=>l.Labor), query=>query.Include(m => m.System));
             if (result == null)
             {
-                return null;
+                return new ModuleDto();
             }
 
             return result.Select(m => new ModuleDto
@@ -69,7 +69,7 @@ namespace Darwin.API.Services
                     LaborType = ml.Labor.LaborType,
                     HoursRequired = ml.HoursRequired,
                 }).ToList()
-            }).FirstOrDefault();
+            }).FirstOrDefault() ?? new ModuleDto();
         }
 
         public async Task<Module> AddModule(Module module)
@@ -119,15 +119,15 @@ namespace Darwin.API.Services
             var existingModule = query.FirstOrDefault();
             if (existingModule == null)
             {
-                return null;
+                return new ModuleDto();
             }
             else
             {
-                existingModule.ModuleName = module.ModuleName;
+                existingModule.ModuleName = module.ModuleName ?? existingModule.ModuleName;
                 existingModule.SystemId = module.SystemId;
-                existingModule.Description = module.Description;
+                existingModule.Description = module.Description ?? existingModule.Description;
             }
-            foreach (var material in module.ModuleMaterials)
+            foreach (var material in module.ModuleMaterials ?? new List<ModuleMaterialsDto>())
             {
                 var queryMaterials = await _moduleMaterialRepository.FindAsync(m=> m.ModuleMaterialId == material.ModuleMaterialId);
                 var existingMaterial = queryMaterials.FirstOrDefault();
@@ -157,7 +157,7 @@ namespace Darwin.API.Services
                 }
             }
 
-            foreach (var labor in module.ModuleLabors)
+            foreach (var labor in module.ModuleLabors ?? new List<ModulesLaborDto>())
             {
                 var queryLabor = await _moduleLaborRepository.FindAsync(l =>l.ModuleLaborId ==labor.ModuleLaborId);
                 var existingLabor = queryLabor.FirstOrDefault();

@@ -6,7 +6,8 @@ public class ProjectCostDetailsDto
     
     public decimal TotalCost { get; set; }
     public double ProfitMargin { get; set; }
-    public List<ProjectModuleCompositesDto> ModulesComposite { get; set; }
-    public List<ProjectModuleDto> Modules { get; set; }
+    public double? Distance {get; set;}
+    public List<ProjectModuleCompositesDto>? ModulesComposite { get; set; }
+    public List<ProjectModuleDto>? Modules { get; set; }
     public ProjectModuleDto? ParentLessCosts { get; set; }
 }

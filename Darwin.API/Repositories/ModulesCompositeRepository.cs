@@ -36,7 +36,7 @@ namespace Darwin.API.Repositories
             return await _context.ModulesComposites
                 .Include(mc => mc.ModuleCompositeDetails)
                     .ThenInclude(mcd => mcd.Module)
-                .FirstOrDefaultAsync(mc => mc.ModuleCompositeId == id);
+                .FirstOrDefaultAsync(mc => mc.ModuleCompositeId == id) ?? new ModulesComposite();
         }
 
         public async Task<IEnumerable<ModuleCompositeDetail>> GetByModuleCompositeIdAsync(int moduleCompositeId)

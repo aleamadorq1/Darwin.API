@@ -1,11 +1,7 @@
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.InteropServices;
 using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
 
 namespace Darwin.API.Services
 {
@@ -19,12 +15,14 @@ namespace Darwin.API.Services
 
     public class ProjectCostsService : IProjectCostsService
     {
+        private readonly IRepository<Project> _projectRepository;
         private readonly IRepository<ProjectMaterial> _projectMaterialsRepository;
         private readonly IRepository<ProjectLabor> _projectLaborRepository;
         private readonly IRepository<ProjectModule> _projectModuleRepository;
         private readonly IRepository<ProjectModuleComposite> _projectModuleCompositeRepository;
-        private readonly IRepository<Models.System> _systemRepository;
         private readonly IProjectService _projectService;
+        private readonly IRepository<Models.System> _systemRepository;
+        private readonly GoogleMapsService _googleMapsService;
 
         public ProjectCostsService(
             IRepository<ProjectMaterial> projectMaterialsRepository, 
@@ -32,7 +30,9 @@ namespace Darwin.API.Services
             IRepository<ProjectModule> projectModuleRepository, 
             IRepository<ProjectModuleComposite> projectModuleCompositeRepository, 
             IRepository<Models.System> systemRepository,
-            IProjectService projectService)
+            IProjectService projectService, 
+            GoogleMapsService googleMapsService,
+            IRepository<Project> projectRepository)
         {
             _projectMaterialsRepository = projectMaterialsRepository;
             _projectLaborRepository = projectLaborRepository;
@@ -40,6 +40,8 @@ namespace Darwin.API.Services
             _projectModuleCompositeRepository = projectModuleCompositeRepository;
             _systemRepository = systemRepository;
             _projectService = projectService;
+            _googleMapsService = googleMapsService;
+            _projectRepository = projectRepository;
         }
 
         public async Task<IEnumerable<ProjectMaterial>> GetProjectMaterialByProjectId(int projectId, bool? orphan = false)
@@ -188,6 +190,8 @@ namespace Darwin.API.Services
 
         public async Task<ProjectCostDetailsDto> GetProjectCosts(int projectId)
         {
+            var query = await _projectRepository.FindAsync(p=>p.ProjectId == projectId, query => query.Include(p => p.DistributionCenter));
+            var project = query.FirstOrDefault();
             var projectModules = await _projectModuleRepository.FindAsync(pm => pm.ProjectId == projectId, query => query.Include( pm => pm.Module));
             var projectMaterials = await GetProjectMaterialByProjectId(projectId);
             var projectLabors = await GetProjectLaborByProjectId(projectId);
@@ -268,6 +272,7 @@ namespace Darwin.API.Services
                 ProjectId = projectId,
                 TotalCost = (decimal)totalCost,
                 ProfitMargin = (await _projectService.GetProjectById(projectId)).ProfitMargin,
+                Distance = await _googleMapsService.GetDrivingDistanceAsync(project.LocationCoordinates, project.DistributionCenter.LocationCoordinates),
                 Modules = modules,
                 ModulesComposite = projectModuleComposites.ToList(),
                 ParentLessCosts = orphanModule

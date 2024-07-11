@@ -57,6 +57,11 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectDetailsService, ProjectDetailService>();
 builder.Services.AddScoped<IProjectCostsService, ProjectCostsService>();
 builder.Services.AddScoped<ISystemService, SystemService>();
+builder.Services.AddScoped<IDistributionCenterService, DistributionCenterService>();
+
+// Register GoogleMapsService with API Key
+builder.Services.AddHttpClient<GoogleMapsService>();
+builder.Services.AddSingleton(sp => new GoogleMapsService(sp.GetRequiredService<HttpClient>(), "AIzaSyD7Ub59HnZxM5bQ-fZl58pLAy1-7a8_WL4"));
 
 var app = builder.Build();
 

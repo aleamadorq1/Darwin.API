@@ -44,7 +44,7 @@ namespace Darwin.API.Controllers
         public async Task<ActionResult<IEnumerable<ProjectModuleDto>>> UpdateProjectCosts(ProjectCostDetailsDto project, int id)
         {
             var result = await _projectCostsService.UpdateProjectCosts(project);
-            if (result == null)
+            if (result == false)
             {
                 return NotFound();
             }

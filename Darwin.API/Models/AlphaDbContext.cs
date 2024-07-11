@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Darwin.API.Models;
 
@@ -17,10 +15,11 @@ public partial class AlphaDbContext : DbContext
     {
     }
 
-
     public virtual DbSet<Category> Categories { get; set; }
 
     public virtual DbSet<Client> Clients { get; set; }
+
+    public virtual DbSet<DistributionCenter> DistributionCenters { get; set; }
 
     public virtual DbSet<Labor> Labors { get; set; }
 
@@ -52,19 +51,11 @@ public partial class AlphaDbContext : DbContext
 
     public virtual DbSet<Supplier> Suppliers { get; set; }
 
+    public virtual DbSet<System> Systems { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        if (!optionsBuilder.IsConfigured)
-        {
-            optionsBuilder.UseSqlite("Filename=./Database/AlphaDB.db")
-                .ConfigureWarnings(warnings =>
-                {
-                    warnings.Default(WarningBehavior.Ignore)
-                            .Log(CoreEventId.FirstWithoutOrderByAndFilterWarning, CoreEventId.RowLimitingOperationWithoutOrderByWarning)
-                            .Throw(RelationalEventId.QueryPossibleUnintendedUseOfEqualsWarning);
-                });
-        }
-    }
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlite("Data Source=./Database/AlphaDB.db");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +80,25 @@ public partial class AlphaDbContext : DbContext
                 .HasColumnName("last_modified");
         });
 
+        modelBuilder.Entity<DistributionCenter>(entity =>
+        {
+            entity.ToTable("Distribution_Centers");
+
+            entity.HasIndex(e => e.DistributionCenterId, "IX_Distribution_Centers_distribution_center_id").IsUnique();
+
+            entity.Property(e => e.DistributionCenterId)
+                .ValueGeneratedNever()
+                .HasColumnName("distribution_center_id");
+            entity.Property(e => e.LastModified)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("TIMESTAMP")
+                .HasColumnName("last_modified");
+            entity.Property(e => e.Location).HasColumnName("location");
+            entity.Property(e => e.LocationAddress).HasColumnName("location_address");
+            entity.Property(e => e.LocationCoordinates).HasColumnName("location_coordinates");
+            entity.Property(e => e.Name).HasColumnName("name");
+        });
+
         modelBuilder.Entity<Labor>(entity =>
         {
             entity.ToTable("Labor");
@@ -101,6 +111,7 @@ public partial class AlphaDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
+            entity.Property(e => e.MinAllowance).HasColumnName("min_allowance");
         });
 
         modelBuilder.Entity<Material>(entity =>
@@ -234,6 +245,7 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.ProjectId).HasColumnName("project_id");
             entity.Property(e => e.ClientId).HasColumnName("client_id");
             entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.DistributionCenterId).HasColumnName("distribution_center_id");
             entity.Property(e => e.EndDate)
                 .HasColumnType("DATE")
                 .HasColumnName("end_date");
@@ -257,6 +269,8 @@ public partial class AlphaDbContext : DbContext
                 .HasForeignKey(d => d.ClientId)
                 .OnDelete(DeleteBehavior.ClientSetNull);
 
+            entity.HasOne(d => d.DistributionCenter).WithMany(p => p.Projects).HasForeignKey(d => d.DistributionCenterId);
+
             entity.HasOne(d => d.Organization).WithMany(p => p.Projects).HasForeignKey(d => d.OrganizationId);
         });
 
@@ -268,7 +282,6 @@ public partial class AlphaDbContext : DbContext
 
             entity.Property(e => e.AllowanceId).HasColumnName("allowance_id");
             entity.Property(e => e.Amount).HasColumnName("amount");
-            entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.LaborId).HasColumnName("labor_id");
             entity.Property(e => e.LastModified)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
@@ -295,6 +308,7 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.HourlyRate).HasColumnName("hourly_rate");
             entity.Property(e => e.LaborId).HasColumnName("labor_id");
             entity.Property(e => e.LastModified)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
             entity.Property(e => e.ModuleId).HasColumnName("module_id");
@@ -319,6 +333,7 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.ProjectMaterialId).HasColumnName("project_material_id");
             entity.Property(e => e.CifPrice).HasColumnName("cif_price");
             entity.Property(e => e.LastModified)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
             entity.Property(e => e.MaterialId).HasColumnName("material_id");
@@ -391,9 +406,8 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.SupplierName).HasColumnName("supplier_name");
         });
 
-                modelBuilder.Entity<System>(entity =>
+        modelBuilder.Entity<System>(entity =>
         {
-            entity.ToTable("Systems");
             entity.HasIndex(e => e.SystemId, "IX_Systems_system_id").IsUnique();
 
             entity.Property(e => e.SystemId).HasColumnName("system_id");

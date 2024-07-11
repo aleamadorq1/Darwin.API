@@ -63,7 +63,7 @@ namespace Darwin.API.Services
             var material = await _materialRepository.GetByIdAsync(id);
             if (material == null)
             {
-                return null;
+                return new MaterialDto();
             }
             else
             {
@@ -91,7 +91,7 @@ namespace Darwin.API.Services
         {
             var newMaterial = new Material
             {
-                MaterialName = material.MaterialName,
+                MaterialName = material.MaterialName ?? "",
                 Sku = material.Sku,
                 UnitPrice = material.UnitPrice,
                 Uom = material.Uom,
@@ -119,11 +119,11 @@ namespace Darwin.API.Services
             var existingMaterial = await _materialRepository.GetByIdAsync(material.MaterialId);
             if (existingMaterial == null)
             {
-                return null;
+                return new MaterialDto();
             }
             else
             {
-                existingMaterial.MaterialName = material.MaterialName;
+                existingMaterial.MaterialName = material.MaterialName ?? existingMaterial.MaterialName;
                 existingMaterial.Sku = material.Sku;
                 existingMaterial.UnitPrice = material.UnitPrice;
                 existingMaterial.Uom = material.Uom;

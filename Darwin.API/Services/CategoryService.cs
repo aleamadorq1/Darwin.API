@@ -39,7 +39,7 @@ namespace Darwin.API.Services
             var category = await _categoryRepository.GetByIdAsync(id);
             if (category == null)
             {
-                return null;
+                return new CategoryDto();
             }
             return new CategoryDto
             {

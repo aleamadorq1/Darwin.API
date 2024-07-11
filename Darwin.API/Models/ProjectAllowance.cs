@@ -13,9 +13,7 @@ public partial class ProjectAllowance
 
     public double Amount { get; set; }
 
-    public string Description { get; set; } = null!;
-
-    public DateTime? LastModified { get; set; }
+    public DateTime LastModified { get; set; }
 
     public virtual Labor Labor { get; set; } = null!;
 

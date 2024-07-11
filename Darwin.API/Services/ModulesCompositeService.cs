@@ -49,7 +49,7 @@ namespace Darwin.API.Services
         public async Task<ModulesCompositeDto> GetModulesCompositeById(int id)
         {
             var modulesComposite = await _modulesCompositeRepository.GetWithDetailsByIdAsync(id);
-            if (modulesComposite == null) return null;
+            if (modulesComposite == null) return new ModulesCompositeDto();
 
             return new ModulesCompositeDto
             {
@@ -87,7 +87,7 @@ namespace Darwin.API.Services
         public async Task<ModulesCompositeDto> UpdateModulesComposite(ModulesCompositeDto modulesComposite)
         {
             var existingModulesComposite = await _modulesCompositeRepository.GetByIdAsync(modulesComposite.ModuleCompositeId);
-            if (existingModulesComposite == null) return null;
+            if (existingModulesComposite == null) return new ModulesCompositeDto();
 
             existingModulesComposite.CompositeName = modulesComposite.CompositeName;
             existingModulesComposite.Description = modulesComposite.Description;

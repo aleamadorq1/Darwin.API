@@ -33,7 +33,11 @@ public partial class Project
 
     public string LocationCoordinates { get; set; } = null!;
 
+    public int? DistributionCenterId { get; set; }
+
     public virtual Client Client { get; set; } = null!;
+
+    public virtual DistributionCenter? DistributionCenter { get; set; }
 
     public virtual Organization? Organization { get; set; }
 
@@ -43,7 +47,7 @@ public partial class Project
 
     public virtual ICollection<ProjectMaterial> ProjectMaterials { get; set; } = new List<ProjectMaterial>();
 
-    public virtual ICollection<ProjectModule> ProjectModules { get; set; } = new List<ProjectModule>();
-
     public virtual ICollection<ProjectModuleComposite> ProjectModuleComposites { get; set; } = new List<ProjectModuleComposite>();
+
+    public virtual ICollection<ProjectModule> ProjectModules { get; set; } = new List<ProjectModule>();
 }
