@@ -82,15 +82,5 @@ namespace Darwin.API.Services
             return await _distributionCenterRepository.DeleteAsync(id);
         }
     }
-
-    public class DistributionCenter
-    {
-        public int DistributionCenterId { get; set; }
-        public string Name { get; set; }
-        public string Location { get; set; }
-        public string LocationAddress { get; set; }
-        public string LocationCoordinates { get; set; }
-        public DateTime? LastModified { get; set; }
-    }
 }
 

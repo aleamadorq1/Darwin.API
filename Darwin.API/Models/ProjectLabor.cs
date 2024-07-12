@@ -24,4 +24,6 @@ public partial class ProjectLabor
     public virtual Module? Module { get; set; }
 
     public virtual Project Project { get; set; } = null!;
+
+    public virtual ProjectAllowance? ProjectAllowance { get; set; }
 }

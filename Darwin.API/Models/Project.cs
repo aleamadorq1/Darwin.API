@@ -41,8 +41,6 @@ public partial class Project
 
     public virtual Organization? Organization { get; set; }
 
-    public virtual ICollection<ProjectAllowance> ProjectAllowances { get; set; } = new List<ProjectAllowance>();
-
     public virtual ICollection<ProjectLabor> ProjectLabors { get; set; } = new List<ProjectLabor>();
 
     public virtual ICollection<ProjectMaterial> ProjectMaterials { get; set; } = new List<ProjectMaterial>();

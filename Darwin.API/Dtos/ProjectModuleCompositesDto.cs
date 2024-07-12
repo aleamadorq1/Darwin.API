@@ -7,7 +7,7 @@ namespace Darwin.API.Dtos
         public int ModuleCompositeId { get; set; }
         public string? CompositeName { get; set; } = null!;
 
-        public double Quantity { get; set; }
+        public int Quantity { get; set; }
 
         public List<ModuleCompositeDetailDto>? CompositeDetails { get; set; }
 

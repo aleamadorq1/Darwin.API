@@ -276,26 +276,20 @@ public partial class AlphaDbContext : DbContext
 
         modelBuilder.Entity<ProjectAllowance>(entity =>
         {
-            entity.HasKey(e => e.AllowanceId);
-
             entity.ToTable("Project_Allowances");
 
-            entity.Property(e => e.AllowanceId).HasColumnName("allowance_id");
+            entity.HasIndex(e => e.ProjectLaborId, "IX_Project_Allowances_project_labor_id").IsUnique();
+
+            entity.Property(e => e.ProjectAllowanceId).HasColumnName("project_allowance_id");
             entity.Property(e => e.Amount).HasColumnName("amount");
-            entity.Property(e => e.LaborId).HasColumnName("labor_id");
             entity.Property(e => e.LastModified)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
-            entity.Property(e => e.ProjectId).HasColumnName("project_id");
+            entity.Property(e => e.ProjectLaborId).HasColumnName("project_labor_id");
+            entity.Property(e => e.Quantity).HasColumnName("quantity");
 
-            entity.HasOne(d => d.Labor).WithMany(p => p.ProjectAllowances)
-                .HasForeignKey(d => d.LaborId)
-                .OnDelete(DeleteBehavior.ClientSetNull);
-
-            entity.HasOne(d => d.Project).WithMany(p => p.ProjectAllowances)
-                .HasForeignKey(d => d.ProjectId)
-                .OnDelete(DeleteBehavior.ClientSetNull);
+            entity.HasOne(d => d.ProjectLabor).WithOne(p => p.ProjectAllowance).HasForeignKey<ProjectAllowance>(d => d.ProjectLaborId).OnDelete(DeleteBehavior.ClientCascade);
         });
 
         modelBuilder.Entity<ProjectLabor>(entity =>

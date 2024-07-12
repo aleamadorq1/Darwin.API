@@ -117,7 +117,7 @@ namespace Darwin.API.Services
             existingProject.EndDate = project.EndDate;
             existingProject.ClientId = project.ClientId;
             existingProject.TotalArea = project.TotalArea;
-            //existingProject.DistributionCenterId = project.DistributionCenterId;
+            existingProject.DistributionCenterId = project.DistributionCenterId;
             existingProject.TotalFloors = project.TotalFloors;
             existingProject.Location = project.Location;    
             existingProject.LocationAddress = project.LocationAddress;

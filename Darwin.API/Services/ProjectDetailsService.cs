@@ -21,6 +21,8 @@ namespace Darwin.API.Services
     {
         private readonly IProjectMaterialsRepository _projectMaterialRepository;
         private readonly IProjectLaborRepository _projectLaborRepository;
+
+        private readonly IRepository<ProjectAllowance> _projectAllowanceRepository;
         private readonly IRepository<ProjectModule> _projectModuleRepository;
         private readonly IRepository<ProjectModuleComposite> _projectModuleComposite;
         private readonly IRepository<Project> _projectRepository;
@@ -29,11 +31,13 @@ namespace Darwin.API.Services
         private readonly IRepository<ModulesComposite> _moduleCompositeRepository;
         private readonly IRepository<Material> _materialRepository;
         private readonly IRepository<Labor> _laborRepository;
+        private readonly GoogleMapsService _googleMapsService;
 
         public ProjectDetailService(IProjectMaterialsRepository projectMaterialRepository, IProjectLaborRepository projectLaborRepository, 
                                     IRepository<ProjectModule> projectModuleRepository, IRepository<ProjectModuleComposite> projectModuleComposite, 
                                     IRepository<Project> projectRepository,IRepository<Material> materialRepository, 
-                                    IRepository<Labor> laborRepository, IRepository<Module> moduleRepository, IRepository<ModulesComposite> moduleCompositeRepository)
+                                    IRepository<Labor> laborRepository, IRepository<Module> moduleRepository, IRepository<ModulesComposite> moduleCompositeRepository, 
+                                    IRepository<ProjectAllowance> projectAllowanceRepository, GoogleMapsService googleMapsService)
         {
             _projectLaborRepository = projectLaborRepository;
             _projectMaterialRepository = projectMaterialRepository;
@@ -44,47 +48,51 @@ namespace Darwin.API.Services
             _materialRepository = materialRepository;
             _laborRepository = laborRepository;
             _moduleCompositeRepository = moduleCompositeRepository;
+            _projectAllowanceRepository = projectAllowanceRepository;
+            _googleMapsService = googleMapsService;
         }
-            
+        private async Task<Project> GetProjectWithDetailsAsync(int projectId)
+        {
+            var projectQuery = await _projectRepository.FindAsync(p => p.ProjectId == projectId, query => query.Include(p => p.DistributionCenter));
+            return projectQuery.FirstOrDefault();
+        }
+
         public async Task<bool> UpsertProjectDetails(ProjectDetailsDto projectDetails, int projectId)
         {
-            var project = await _projectRepository.GetByIdAsync(projectId);
+            var project = await GetProjectWithDetailsAsync(projectId);
+            if (project == null) return false;
 
-            if (project == null)
-            {
-                return false;
-            }
-
-            var existingMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId == null)).ToList();
-            var existingLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId == null)).ToList();
-            var existinModuleMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId != null)).ToList();
-            var existingModuleLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId != null)).ToList();
-            var existingModules = (await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId, query => query.Include(p => p.Module), query => query.Include(p=>p.Module.ModulesMaterials), query=>query.Include(p=>p.Module.ModulesLabors))).ToList();
-            var existingModulesComposite = (await _projectModuleComposite.FindAsync(p => p.ProjectId == projectId, query =>query.Include(p => p.ModuleComposite), query => query.Include(p =>p.ModuleComposite.ModuleCompositeDetails))).ToList();
-            var existingCompositeMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId != null && p.Module.ModuleCompositeDetails.Count() > 0, query => query.Include(p=>p.Module.ModuleCompositeDetails))).ToList();
-            var existingCompositeLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId != null && p.Module.ModuleCompositeDetails.Count() > 0, query => query.Include(p=>p.Module.ModuleCompositeDetails))).ToList();
-
+            var drivingDistance = await _googleMapsService.GetDrivingDistanceAsync(project.LocationCoordinates, project.DistributionCenter.LocationCoordinates);
+            
             var newMaterials = projectDetails.ProjectMaterials ?? new List<ProjectMaterialDto>();
             var newLabor = projectDetails.ProjectLabor ?? new List<ProjectLaborDto>();
             var newModules = projectDetails.ProjectModules ?? new List<ProjectModuleDto>();
             var newModulesComposite = projectDetails.ProjectModuleComposites ?? new List<ProjectModuleCompositesDto>();
+
+            await UpsertMaterialsAsync(newMaterials, projectId);
+            await UpsertLaborAsync(newLabor, projectId, drivingDistance);
+            await UpsertModulesAsync(newModules, projectId, drivingDistance);
+            await UpsertCompositeModulesAsync(newModulesComposite, projectId, drivingDistance);
+
+            return true;
+        }
+
+        private async Task UpsertMaterialsAsync(IEnumerable<ProjectMaterialDto> newMaterials, int projectId)
+        {
+            var existingMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == null)).ToList();
             
-            // Update or add materials
             foreach (var materialDto in newMaterials)
             {
                 var existingMaterial = existingMaterials.FirstOrDefault(m => m.MaterialId == materialDto.MaterialId);
                 if (existingMaterial != null)
                 {
-                    // Update existing material
                     existingMaterial.Quantity = materialDto.Quantity;
                     existingMaterial.LastModified = DateTime.UtcNow;
-                    //existingMaterial.ModuleId = materialDto.ModuleId == 0 ? null : materialDto.ModuleId;
                     await _projectMaterialRepository.UpdateAsync(existingMaterial);
                 }
                 else
                 {
                     var material = await _materialRepository.GetByIdAsync(materialDto.MaterialId);
-                    // Add new material
                     var newMaterial = new ProjectMaterial
                     {
                         ProjectId = projectId,
@@ -97,74 +105,103 @@ namespace Darwin.API.Services
                         ModuleId = null
                     };
                     await _projectMaterialRepository.AddAsync(newMaterial);
-
-                    var result = await _projectMaterialRepository.FindAsync(p => p.ProjectMaterialId == newMaterial.ProjectMaterialId);
-                    existingMaterials.Add(result.FirstOrDefault());
+                    existingMaterials.Add(newMaterial);
                 }
             }
 
-            // Remove materials that are not in the incoming list
-            foreach (var existingMaterial in existingMaterials)
+            var materialsToDelete = existingMaterials.Where(m => !newMaterials.Any(nm => nm.MaterialId == m.MaterialId)).ToList();
+            foreach (var material in materialsToDelete)
             {
-                if (!newMaterials.Any(m => m.MaterialId == existingMaterial.MaterialId))
-                {
-                    await _projectMaterialRepository.DeleteAsync(existingMaterial.ProjectMaterialId);
-                }
+                await _projectMaterialRepository.DeleteAsync(material.ProjectMaterialId);
             }
+        }
 
-            // Update or add labor
+        private async Task UpsertLaborAsync(IEnumerable<ProjectLaborDto> newLabor, int projectId, double drivingDistance)
+        {
+            var existingLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == null)).ToList();
+
             foreach (var laborDto in newLabor)
             {
                 var existingLaborItem = existingLabor.FirstOrDefault(l => l.LaborId == laborDto.LaborId);
+                var labor = await _laborRepository.GetByIdAsync(laborDto.LaborId);
+
                 if (existingLaborItem != null)
                 {
-                    // Update existing labor
+                    var existingAllowanceItem = (await _projectAllowanceRepository.FindAsync(p => p.ProjectLaborId == existingLaborItem.ProjectLaborId)).FirstOrDefault();
                     existingLaborItem.Quantity = (int)laborDto.Quantity;
                     existingLaborItem.LastModified = DateTime.UtcNow;
-                    //existingLaborItem.ModuleId = null;
+                    UpdateAllowance(existingAllowanceItem, labor, drivingDistance, laborDto.Quantity);
                     await _projectLaborRepository.UpdateAsync(existingLaborItem);
+                    await _projectAllowanceRepository.UpdateAsync(existingAllowanceItem);
                 }
                 else
                 {
-                    // Add new labor
                     var newLaborItem = new ProjectLabor
                     {
                         ProjectId = projectId,
                         LaborId = laborDto.LaborId,
                         Quantity = (int)laborDto.Quantity,
                         LastModified = DateTime.UtcNow,
-                        HourlyRate = (await _laborRepository.GetByIdAsync(laborDto.LaborId)).HourlyRate,
+                        HourlyRate = labor.HourlyRate,
                         ModuleId = null
                     };
                     await _projectLaborRepository.AddAsync(newLaborItem);
 
-                    var result = await _projectLaborRepository.FindAsync(p=> p.ProjectLaborId == newLaborItem.ProjectLaborId);
-                    existingLabor.Add(result.FirstOrDefault());
+                    var newAllowance = CreateNewAllowance(newLaborItem, labor, drivingDistance, laborDto.Quantity);
+                    await _projectAllowanceRepository.AddAsync(newAllowance);
+                    existingLabor.Add(newLaborItem);
                 }
             }
 
-            // Remove labor that is not in the incoming list
-            foreach (var existingLaborItem in existingLabor)
+            var laborToDelete = existingLabor.Where(l => !newLabor.Any(nl => nl.LaborId == l.LaborId)).ToList();
+            foreach (var labor in laborToDelete)
             {
-                if (!newLabor.Any(l => l.LaborId == existingLaborItem.LaborId))
-                {
-                    await _projectLaborRepository.DeleteAsync(existingLaborItem.ProjectLaborId);
-                }
+                await _projectLaborRepository.DeleteAsync(labor.ProjectLaborId);
             }
+        }
 
-            // Update or add modules
+        private ProjectAllowance CreateNewAllowance(ProjectLabor laborItem, Labor labor, double drivingDistance, double quantity)
+        {
+            return new ProjectAllowance
+            {
+                ProjectLaborId = laborItem.ProjectLaborId,
+                Amount = CalculateAllowanceAmount(labor, drivingDistance),
+                Quantity = quantity / 8,
+                LastModified = DateTime.UtcNow,
+            };
+        }
+
+        private void UpdateAllowance(ProjectAllowance allowance, Labor labor, double drivingDistance, double quantity)
+        {
+            allowance.Amount = CalculateAllowanceAmount(labor, drivingDistance);
+            allowance.LastModified = DateTime.UtcNow;
+            allowance.Quantity = quantity / 8;
+        }
+
+        private double CalculateAllowanceAmount(Labor labor, double drivingDistance)
+        {
+            if (drivingDistance > 300) return labor.MinAllowance * 3;
+            if (drivingDistance > 200) return labor.MinAllowance * 2;
+            if (drivingDistance > 100) return labor.MinAllowance * 1.5;
+            if (drivingDistance > 50) return labor.MinAllowance * 1.25;
+            if (drivingDistance > 25) return labor.MinAllowance;
+            return 0;
+        }
+
+        private async Task UpsertModulesAsync(IEnumerable<ProjectModuleDto> newModules, int projectId, double drivingDistance)
+        {
+            var existingModules = (await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId, query => query.Include(p => p.Module).ThenInclude(m => m.ModulesMaterials).Include(p => p.Module).ThenInclude(m => m.ModulesLabors))).ToList();
+
             foreach (var moduleDto in newModules)
             {
                 var existingModule = existingModules.FirstOrDefault(m => m.ModuleId == moduleDto.ModuleId && m.ModuleId != null);
                 if (existingModule != null)
                 {
-                    // Update existing module
                     existingModule.Quantity = moduleDto.Quantity;
                     await _projectModuleRepository.UpdateAsync(existingModule);
                 }
                 else
                 {
-                    // Add new module
                     var newModule = new ProjectModule
                     {
                         ProjectId = projectId,
@@ -172,94 +209,125 @@ namespace Darwin.API.Services
                         Quantity = moduleDto.Quantity
                     };
                     await _projectModuleRepository.AddAsync(newModule);
-                    var result = await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == newModule.ModuleId, query => query.Include(p => p.Module),query=>query.Include(p=>p.Module.ModulesMaterials), query=> query.Include(p=>p.Module.ModulesLabors)); 
-                    existingModules.Add(result.FirstOrDefault());
+                    existingModules.Add(newModule);
                 }
 
-                //var module = await _moduleRepository.FindAsync(m => m.ModuleId == moduleDto.ModuleId, includes: [m => m.ModulesMaterials, m => m.ModulesLabors]);
-                var module = existingModules.FirstOrDefault(m => m.ModuleId == moduleDto.ModuleId).Module;
+                var module = existingModules.FirstOrDefault(m => m.ModuleId == moduleDto.ModuleId)?.Module;
 
-                foreach (var moduleMaterial in module.ModulesMaterials ?? new List<ModulesMaterial>())
+                if (module != null)
                 {
-                    var material = await _materialRepository.GetByIdAsync(moduleMaterial.MaterialId);
-                    var existingProjectMaterial = existinModuleMaterials.FirstOrDefault(m => m.ModuleId == moduleMaterial.ModuleId && m.MaterialId == moduleMaterial.MaterialId);
-                    if (existingProjectMaterial != null)
-                    {
-                        existingProjectMaterial.Quantity = (int)moduleMaterial.Quantity;
-                        existingProjectMaterial.LastModified = DateTime.UtcNow;
-                        await _projectMaterialRepository.UpdateAsync(existingProjectMaterial);
-                    }
-                    else
-                    {
-                        var newProjectMaterial = new ProjectMaterial
-                        {
-                            ProjectId = projectId,
-                            MaterialId = material.MaterialId,
-                            Quantity = (int)moduleMaterial.Quantity,
-                            LastModified = DateTime.UtcNow,
-                            UnitPrice = material.UnitPrice,
-                            TaxStatus = material.TaxStatus,
-                            CifPrice = material.CifPrice ?? 0,
-                            ModuleId = moduleDto.ModuleId
-                        };
-                        await _projectMaterialRepository.AddAsync(newProjectMaterial);
-                        var result = await _projectMaterialRepository.FindAsync(p => p.ProjectMaterialId == newProjectMaterial.ProjectMaterialId, query => query.Include(p=>p.Module.ModuleCompositeDetails ));
-                        existinModuleMaterials.Add(result.FirstOrDefault());
-                    }
-                }
-
-                foreach (var moduleLabor in module.ModulesLabors ?? new List<ModulesLabor>())
-                {
-                    var labor = await _laborRepository.GetByIdAsync(moduleLabor.LaborId);
-                    var existingProjectLabor = existingModuleLabor.FirstOrDefault(l => l.ModuleId == moduleDto.ModuleId && l.LaborId == moduleLabor.LaborId);
-                    if (existingProjectLabor != null)
-                    {
-                        existingProjectLabor.Quantity = (int)moduleLabor.HoursRequired;
-                        existingProjectLabor.LastModified = DateTime.UtcNow;
-                        await _projectLaborRepository.UpdateAsync(existingProjectLabor);
-                    }
-                    else
-                    {
-                        var newProjectLabor = new ProjectLabor
-                        {
-                            ProjectId = projectId,
-                            LaborId = moduleLabor.LaborId,
-                            Quantity = (int)moduleLabor.HoursRequired,
-                            LastModified = DateTime.UtcNow,
-                            HourlyRate = labor.HourlyRate,
-                            ModuleId = moduleDto.ModuleId
-                        };
-                        await _projectLaborRepository.AddAsync(newProjectLabor);
-
-                        var result = await _projectLaborRepository.FindAsync(p=> p.ProjectLaborId == newProjectLabor.ProjectLaborId, query => query.Include(p=>p.Module.ModuleCompositeDetails));
-                        existingModuleLabor.Add(result.FirstOrDefault());
-                    }
+                    await UpsertModuleMaterialsAsync(module.ModulesMaterials, moduleDto.ModuleId, projectId);
+                    await UpsertModuleLaborAsync(module.ModulesLabors, moduleDto.ModuleId, projectId, drivingDistance);
                 }
             }
 
-            // Remove modules that are not in the incoming list
-            foreach (var existingModule in existingModules)
+            var modulesToDelete = existingModules.Where(m => !newModules.Any(nm => nm.ModuleId == m.ModuleId)).ToList();
+            foreach (var module in modulesToDelete)
             {
-                if (!newModules.Any(m => m.ModuleId == existingModule.ModuleId))
+                await _projectModuleRepository.DeleteAsync(module.ProjectModuleId);
+            }
+        }
+
+        private async Task UpsertModuleMaterialsAsync(IEnumerable<ModulesMaterial> moduleMaterials, int? moduleId, int projectId)
+        {
+            var existingModuleMaterials = (await _projectMaterialRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == moduleId)).ToList() ?? new List<ProjectMaterial>();
+
+            moduleMaterials = moduleMaterials ?? new List<ModulesMaterial>();
+
+            foreach (var moduleMaterial in moduleMaterials)
+            {
+                var material = await _materialRepository.GetByIdAsync(moduleMaterial.MaterialId);
+                var existingProjectMaterial = existingModuleMaterials.FirstOrDefault(m => m.ModuleId == moduleMaterial.ModuleId && m.MaterialId == moduleMaterial.MaterialId);
+
+                if (existingProjectMaterial != null)
                 {
-                    await _projectModuleRepository.DeleteAsync(existingModule.ProjectModuleId);
+                    existingProjectMaterial.Quantity = (int)moduleMaterial.Quantity;
+                    existingProjectMaterial.LastModified = DateTime.UtcNow;
+                    await _projectMaterialRepository.UpdateAsync(existingProjectMaterial);
+                }
+                else
+                {
+                    var newProjectMaterial = new ProjectMaterial
+                    {
+                        ProjectId = projectId,
+                        MaterialId = material.MaterialId,
+                        Quantity = (int)moduleMaterial.Quantity,
+                        LastModified = DateTime.UtcNow,
+                        UnitPrice = material.UnitPrice,
+                        TaxStatus = material.TaxStatus,
+                        CifPrice = material.CifPrice ?? 0,
+                        ModuleId = moduleId
+                    };
+                    await _projectMaterialRepository.AddAsync(newProjectMaterial);
+                    existingModuleMaterials.Add(newProjectMaterial);
                 }
             }
 
+            var materialsToDelete = existingModuleMaterials.Where(m => !moduleMaterials.Any(nm => nm.MaterialId == m.MaterialId)).ToList();
+            foreach (var material in materialsToDelete)
+            {
+                await _projectMaterialRepository.DeleteAsync(material.ProjectMaterialId);
+            }
+        }
 
-            // Handle composite modules
+
+        private async Task UpsertModuleLaborAsync(IEnumerable<ModulesLabor> moduleLabors, int? moduleId, int projectId, double drivingDistance)
+        {
+            var existingModuleLabor = (await _projectLaborRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == moduleId)).ToList();
+
+            foreach (var moduleLabor in moduleLabors ?? new List<ModulesLabor>())
+            {
+                var labor = await _laborRepository.GetByIdAsync(moduleLabor.LaborId);
+                var existingLaborItem = existingModuleLabor.FirstOrDefault(l => l.LaborId == moduleLabor.LaborId && l.ModuleId == moduleLabor.ModuleId);
+                if (existingLaborItem != null)
+                {
+                    var existingAllowanceItem = (await _projectAllowanceRepository.FindAsync(p => p.ProjectLaborId == existingLaborItem.ProjectLaborId)).FirstOrDefault();
+                    existingLaborItem.Quantity = (int)moduleLabor.HoursRequired;
+                    existingLaborItem.LastModified = DateTime.UtcNow;
+                    UpdateAllowance(existingAllowanceItem, labor, drivingDistance, moduleLabor.HoursRequired);
+                    await _projectLaborRepository.UpdateAsync(existingLaborItem);
+                    await _projectAllowanceRepository.UpdateAsync(existingAllowanceItem);
+                }
+                else
+                {
+                    var newLaborItem = new ProjectLabor
+                    {
+                        ProjectId = projectId,
+                        LaborId = moduleLabor.LaborId,
+                        Quantity = (int)moduleLabor.HoursRequired,
+                        LastModified = DateTime.UtcNow,
+                        HourlyRate = labor.HourlyRate,
+                        ModuleId = moduleId
+                    };
+                    await _projectLaborRepository.AddAsync(newLaborItem);
+
+                    var newAllowance = CreateNewAllowance(newLaborItem, labor, drivingDistance, moduleLabor.HoursRequired);
+                    await _projectAllowanceRepository.AddAsync(newAllowance);
+                    existingModuleLabor.Add(newLaborItem);
+                }
+            }
+
+            var laborToDelete = existingModuleLabor.Where(l => !moduleLabors.Any(nl => nl.LaborId == l.LaborId)).ToList();
+            foreach (var labor in laborToDelete)
+            {
+                await _projectLaborRepository.DeleteAsync(labor.ProjectLaborId);
+            }
+        }
+
+        private async Task UpsertCompositeModulesAsync(IEnumerable<ProjectModuleCompositesDto> newModulesComposite, int projectId, double drivingDistance)
+        {
+            var existingModulesComposite = (await _projectModuleComposite.FindAsync(p => p.ProjectId == projectId, query => query.Include(p => p.ModuleComposite).ThenInclude(mc => mc.ModuleCompositeDetails))).ToList() ?? new List<ProjectModuleComposite>();
+
             foreach (var moduleCompositeDto in newModulesComposite)
             {
                 var existingModuleComposite = existingModulesComposite.FirstOrDefault(m => m.ModuleCompositeId == moduleCompositeDto.ModuleCompositeId);
                 if (existingModuleComposite != null)
                 {
-                    // Update existing composite module
                     existingModuleComposite.Quantity = moduleCompositeDto.Quantity;
                     await _projectModuleComposite.UpdateAsync(existingModuleComposite);
                 }
                 else
                 {
-                    // Add new composite module
                     var newModuleComposite = new ProjectModuleComposite
                     {
                         ProjectId = projectId,
@@ -267,89 +335,29 @@ namespace Darwin.API.Services
                         Quantity = moduleCompositeDto.Quantity
                     };
                     await _projectModuleComposite.AddAsync(newModuleComposite);
-
-                    var result = await _projectModuleComposite.FindAsync(p=>p.ProjectModuleCompositeId == newModuleComposite.ProjectModuleCompositeId, query => query.Include(p => p.ModuleComposite), query => query.Include(p =>p.ModuleComposite.ModuleCompositeDetails));
-                    existingModulesComposite.Add(result.FirstOrDefault());
+                    existingModulesComposite.Add(newModuleComposite);
                 }
 
                 var moduleComp = existingModulesComposite.FirstOrDefault(m => m.ModuleCompositeId == moduleCompositeDto.ModuleCompositeId);
 
-                // Handle modules in composite module
                 foreach (var detail in moduleComp?.ModuleComposite.ModuleCompositeDetails ?? new List<ModuleCompositeDetail>())
                 {
                     var moduleCompDetailModule = detail.Module;
 
-                    foreach (var compositeModuleMaterial in moduleCompDetailModule?.ModulesMaterials ?? new List<ModulesMaterial>())
+                    if (moduleCompDetailModule != null)
                     {
-                        var material = await _materialRepository.GetByIdAsync(compositeModuleMaterial.MaterialId);
-                        var existingCompositeMaterial = existingCompositeMaterials.FirstOrDefault(m => m.ModuleId == detail.ModuleId&& m.Module?.ModuleCompositeDetails.FirstOrDefault()?.ModuleCompositeId == moduleComp?.ModuleCompositeId && m.MaterialId == material.MaterialId);
-                        if (existingCompositeMaterial != null)
-                        {
-                            existingCompositeMaterial.Quantity = (int)compositeModuleMaterial.Quantity;
-                            existingCompositeMaterial.LastModified = DateTime.UtcNow;
-                            await _projectMaterialRepository.UpdateAsync(existingCompositeMaterial);
-                        }
-                        else
-                        {
-                            var newCompositeMaterial = new ProjectMaterial
-                            {
-                                ProjectId = projectId,
-                                MaterialId = material.MaterialId,
-                                Quantity = (int)compositeModuleMaterial.Quantity,
-                                LastModified = DateTime.UtcNow,
-                                UnitPrice = material.UnitPrice,
-                                TaxStatus = material.TaxStatus,
-                                CifPrice = material.CifPrice ?? 0,
-                                ModuleId = detail.ModuleId
-                            };
-                            await _projectMaterialRepository.AddAsync(newCompositeMaterial);
-                            var result = await _projectMaterialRepository.FindAsync(cm=> cm.ProjectMaterialId == newCompositeMaterial.ProjectMaterialId, query => query.Include(p => p.Module.ModuleCompositeDetails));
-                            existingCompositeMaterials.Add(result.FirstOrDefault());
-                        }
-                    }
-
-                    foreach (var compositeModuleLabor in moduleCompDetailModule?.ModulesLabors ?? new List<ModulesLabor>())
-                    {
-                        var labor = await _laborRepository.GetByIdAsync(compositeModuleLabor.LaborId);
-                        var existingCompLabor = existingCompositeLabor?.FirstOrDefault(l => l.ModuleId == detail.ModuleId && l.Module.ModuleCompositeDetails.FirstOrDefault()?.ModuleCompositeId == moduleComp?.ModuleCompositeId&& l.LaborId == compositeModuleLabor.LaborId);
-                        if (existingCompositeLabor != null)
-                        {
-                            existingCompLabor.Quantity = (int)compositeModuleLabor.HoursRequired;
-                            existingCompLabor.LastModified = DateTime.UtcNow;
-                            await _projectLaborRepository.UpdateAsync(existingCompLabor);
-                        }
-                        else
-                        {
-                            var newCompositeLabor = new ProjectLabor
-                            {
-                                ProjectId = projectId,
-                                LaborId = compositeModuleLabor.LaborId,
-                                Quantity = (int)compositeModuleLabor.HoursRequired,
-                                LastModified = DateTime.UtcNow,
-                                HourlyRate = labor.HourlyRate,
-                                ModuleId = detail.ModuleId
-                            };
-                            await _projectLaborRepository.AddAsync(newCompositeLabor);
-                            var result = await _projectLaborRepository.FindAsync(p=> p.ProjectLaborId == newCompositeLabor.ProjectLaborId, query => query.Include(p=>p.Module.ModuleCompositeDetails));
-                            existingCompositeLabor?.Add(result.FirstOrDefault());
-                        }
+                        await UpsertModuleMaterialsAsync(moduleCompDetailModule.ModulesMaterials, detail.ModuleId, projectId);
+                        await UpsertModuleLaborAsync(moduleCompDetailModule.ModulesLabors ?? new List<ModulesLabor>(), detail.ModuleId, projectId, drivingDistance);
                     }
                 }
             }
 
-            // Remove composite modules that are not in the incoming list
-            foreach (var existingModuleComposite in existingModulesComposite)
+            var modulesCompositeToDelete = existingModulesComposite.Where(mc => !newModulesComposite.Any(nmc => nmc.ModuleCompositeId == mc.ModuleCompositeId)).ToList();
+            foreach (var moduleComposite in modulesCompositeToDelete)
             {
-                if (!newModulesComposite.Any(m => m.ModuleCompositeId == existingModuleComposite.ModuleCompositeId))
-                {
-                    await _projectModuleComposite.DeleteAsync(existingModuleComposite.ProjectModuleCompositeId);
-                }
+                await _projectModuleComposite.DeleteAsync(moduleComposite.ProjectModuleCompositeId);
             }
-
-            return true;
         }
-
-
 
         public async Task<ProjectDetailsDto> GetProjectDetails(int projectId)
         {
@@ -361,7 +369,7 @@ namespace Darwin.API.Services
             }
 
             var projectMaterials = await _projectMaterialRepository.FindAsync(p => p.ProjectId ==projectId && p.ModuleId == null);
-            var projectLabor = await _projectLaborRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == null);
+            var projectLabor = await _projectLaborRepository.FindAsync(p => p.ProjectId == projectId && p.ModuleId == null, query => query.Include(p => p.Labor), query => query.Include(p => p.ProjectAllowance));
             var projectModules = await _projectModuleRepository.FindAsync(p => p.ProjectId == projectId);
             var projectModulesComposite = await _projectModuleComposite.FindAsync(p => p.ProjectId == projectId);
 
@@ -431,6 +439,9 @@ namespace Darwin.API.Services
                 LaborId = pl.LaborId,
                 Quantity = pl.Quantity,
                 HourlyRate = pl.HourlyRate,
+                ProjectLaborId = pl.ProjectLaborId,
+                AllowanceAmount = pl.ProjectAllowance?.Amount,
+                AllowanceQuantity = pl.ProjectAllowance?.Quantity,
                 ModuleId = pl.ModuleId == 0 ? null : pl.ModuleId,
             }).ToList();
         }

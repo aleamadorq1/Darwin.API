@@ -8,7 +8,7 @@ namespace Darwin.API.Services
     public interface IProjectCostsService
     {
         Task<IEnumerable<ProjectMaterial>> GetProjectMaterialByProjectId(int projectId, bool? orphan = false);
-        Task<IEnumerable<ProjectLabor>> GetProjectLaborByProjectId(int projectId,  bool? orphan = false);
+        Task<IEnumerable<ProjectLabor>> GetProjectLaborByProjectId(int projectId, bool? orphan = false);
         Task<ProjectCostDetailsDto> GetProjectCosts(int projectId);
         Task<bool> UpdateProjectCosts(ProjectCostDetailsDto projectCostDetailsDto);
     }
@@ -22,17 +22,19 @@ namespace Darwin.API.Services
         private readonly IRepository<ProjectModuleComposite> _projectModuleCompositeRepository;
         private readonly IProjectService _projectService;
         private readonly IRepository<Models.System> _systemRepository;
+        private readonly IRepository<ProjectAllowance> _projectAllowanceRepository;
         private readonly GoogleMapsService _googleMapsService;
 
         public ProjectCostsService(
-            IRepository<ProjectMaterial> projectMaterialsRepository, 
-            IRepository<ProjectLabor> projectLaborRepository, 
-            IRepository<ProjectModule> projectModuleRepository, 
-            IRepository<ProjectModuleComposite> projectModuleCompositeRepository, 
+            IRepository<ProjectMaterial> projectMaterialsRepository,
+            IRepository<ProjectLabor> projectLaborRepository,
+            IRepository<ProjectModule> projectModuleRepository,
+            IRepository<ProjectModuleComposite> projectModuleCompositeRepository,
             IRepository<Models.System> systemRepository,
-            IProjectService projectService, 
+            IProjectService projectService,
             GoogleMapsService googleMapsService,
-            IRepository<Project> projectRepository)
+            IRepository<Project> projectRepository,
+            IRepository<ProjectAllowance> projectAllowanceRepository)
         {
             _projectMaterialsRepository = projectMaterialsRepository;
             _projectLaborRepository = projectLaborRepository;
@@ -42,58 +44,44 @@ namespace Darwin.API.Services
             _projectService = projectService;
             _googleMapsService = googleMapsService;
             _projectRepository = projectRepository;
+            _projectAllowanceRepository = projectAllowanceRepository;
         }
 
         public async Task<IEnumerable<ProjectMaterial>> GetProjectMaterialByProjectId(int projectId, bool? orphan = false)
         {
-            IEnumerable<ProjectMaterial> projectMaterials;
-            if (orphan == true)
-            {
-                projectMaterials = await _projectMaterialsRepository.FindAsync(
-                    pm => pm.ProjectId == projectId && pm.ModuleId == null, 
+            return orphan == true ?
+                await _projectMaterialsRepository.FindAsync(
+                    pm => pm.ProjectId == projectId && pm.ModuleId == null,
+                    query => query.Include(pm => pm.Material)) :
+                await _projectMaterialsRepository.FindAsync(
+                    pm => pm.ProjectId == projectId && pm.ModuleId != null,
                     query => query.Include(pm => pm.Material));
-            }
-            else
-            {
-                projectMaterials = await _projectMaterialsRepository.FindAsync(
-                    pm => pm.ProjectId == projectId && pm.ModuleId != null, 
-                    query => query.Include(pm => pm.Material));
-            }
-            return projectMaterials;
         }
 
         public async Task<IEnumerable<ProjectLabor>> GetProjectLaborByProjectId(int projectId, bool? orphan = false)
         {
-            IEnumerable<ProjectLabor> projectLabors;
-            if (orphan == true)
-            {
-                projectLabors = await _projectLaborRepository.FindAsync(
-                    pm => pm.ProjectId == projectId && pm.ModuleId == null, 
-                    query=> query.Include( pm => pm.Labor));
-            }
-            else
-            {
-                projectLabors = await _projectLaborRepository.FindAsync(
-                    pm => pm.ProjectId == projectId && pm.ModuleId != null, 
-                    query=>query.Include( pm => pm.Labor));
-            }
-            return projectLabors;
+            return orphan == true ?
+                await _projectLaborRepository.FindAsync(
+                    pl => pl.ProjectId == projectId && pl.ModuleId == null,
+                    query => query.Include(pl => pl.Labor).Include(pl => pl.ProjectAllowance)) :
+                await _projectLaborRepository.FindAsync(
+                    pl => pl.ProjectId == projectId && pl.ModuleId != null,
+                    query => query.Include(pl => pl.Labor).Include(pl => pl.ProjectAllowance));
         }
 
         public async Task<IList<ProjectModuleDto>> GetProjectModulesByProjectId(int projectId)
         {
-            var projectMaterials = await _projectModuleRepository.FindAsync(
-                                                                            pm => pm.ProjectId == projectId,
-                                                                            query => query.Include(pm => pm.Module)
-                                                                                        .ThenInclude(m => m.ModulesMaterials)
-                                                                                        .ThenInclude(mm => mm.Material),
-                                                                            query => query.Include(pm => pm.Module)
-                                                                                        .ThenInclude(m => m.ModulesLabors)
-                                                                                        .ThenInclude(ml => ml.Labor)
-);
+            var projectModules = await _projectModuleRepository.FindAsync(
+                pm => pm.ProjectId == projectId,
+                query => query.Include(pm => pm.Module)
+                              .ThenInclude(m => m.ModulesMaterials)
+                              .ThenInclude(mm => mm.Material),
+                query => query.Include(pm => pm.Module)
+                              .ThenInclude(m => m.ModulesLabors)
+                              .ThenInclude(ml => ml.Labor));
 
             var systems = await _systemRepository.GetAllAsync();
-            return projectMaterials.Select(pm => new ProjectModuleDto
+            return projectModules.Select(pm => new ProjectModuleDto
             {
                 ProjectId = pm.ProjectId,
                 ModuleId = pm.ModuleId,
@@ -119,27 +107,30 @@ namespace Darwin.API.Services
                     ProjectLaborId = l.Labor.ProjectLabors.FirstOrDefault(pl => pl.ModuleId == pm.ModuleId)?.ProjectLaborId ?? 0,
                     LaborType = l.Labor.LaborType,
                     Quantity = l.HoursRequired,
-                    HourlyRate = l.Labor.HourlyRate
+                    HourlyRate = l.Labor.HourlyRate,
+                    AllowanceAmount = l.Labor.ProjectLabors.FirstOrDefault(pl => pl.ModuleId == pm.ModuleId)?.ProjectAllowance?.Amount ?? 0,
+                    AllowanceQuantity = l.Labor.ProjectLabors.FirstOrDefault(pl => pl.ModuleId == pm.ModuleId)?.ProjectAllowance?.Quantity ?? 0
                 }).ToList()
             }).ToList();
         }
+
         public async Task<IEnumerable<ProjectModuleCompositesDto>> GetProjectModuleCompositesByProjectId(int projectId)
         {
             var projectModuleComposites = await _projectModuleCompositeRepository.FindAsync(
                 pmc => pmc.ProjectId == projectId,
                 query => query.Include(pmc => pmc.ModuleComposite.ModuleCompositeDetails)
-                              .ThenInclude(pmc=>pmc.Module)
-                              .ThenInclude(pmc=>pmc.ProjectMaterials)
-                              .Include(pmc=>pmc.ModuleComposite.ModuleCompositeDetails)
-                              .ThenInclude(pmc=>pmc.Module)
-                              .ThenInclude(pmc=>pmc.ProjectLabors));
+                              .ThenInclude(pmc => pmc.Module)
+                              .ThenInclude(pmc => pmc.ProjectMaterials)
+                              .Include(pmc => pmc.ModuleComposite.ModuleCompositeDetails)
+                              .ThenInclude(pmc => pmc.Module)
+                              .ThenInclude(pmc => pmc.ProjectLabors)
+                              .ThenInclude(pmc => pmc.ProjectAllowance));
 
             var systems = await _systemRepository.GetAllAsync();
             var projectMaterials = await GetProjectMaterialByProjectId(projectId);
             var projectLabors = await GetProjectLaborByProjectId(projectId);
-            //var projectModules = await GetProjectModulesByProjectId(projectId);
 
-            var compositeDetails = projectModuleComposites.Select(pmc => new ProjectModuleCompositesDto
+            return projectModuleComposites.Select(pmc => new ProjectModuleCompositesDto
             {
                 ProjectModuleCompositeId = pmc.ProjectModuleCompositeId,
                 ProjectId = pmc.ProjectId,
@@ -148,7 +139,6 @@ namespace Darwin.API.Services
                 Quantity = pmc.Quantity,
                 CompositeDetails = pmc.ModuleComposite.ModuleCompositeDetails.Select(mcd => new ModuleCompositeDetailDto
                 {
-
                     ModuleCompositeDetailId = mcd.ModuleCompositeDetailId,
                     ModuleId = mcd.ModuleId,
                     ModuleName = mcd.Module?.ModuleName ?? "No Module",
@@ -181,22 +171,27 @@ namespace Darwin.API.Services
                             LaborId = p.LaborId,
                             LaborType = p.Labor.LaborType,
                             Quantity = p.Quantity,
-                            HourlyRate = p.HourlyRate
+                            HourlyRate = p.HourlyRate,
+                            AllowanceAmount = p.ProjectAllowance?.Amount ?? 0,
+                            AllowanceQuantity = p.ProjectAllowance?.Quantity ?? 0
                         }).ToList()
                     } : null
-                }).ToList()});
-            return compositeDetails;
+                }).ToList()
+            }).ToList();
         }
 
         public async Task<ProjectCostDetailsDto> GetProjectCosts(int projectId)
         {
-            var query = await _projectRepository.FindAsync(p=>p.ProjectId == projectId, query => query.Include(p => p.DistributionCenter));
+            var query = await _projectRepository.FindAsync(p => p.ProjectId == projectId, query => query.Include(p => p.DistributionCenter));
             var project = query.FirstOrDefault();
-            var projectModules = await _projectModuleRepository.FindAsync(pm => pm.ProjectId == projectId, query => query.Include( pm => pm.Module));
+            if (project == null) return null;
+
+            var drivingDistance = await _googleMapsService.GetDrivingDistanceAsync(project.LocationCoordinates, project.DistributionCenter.LocationCoordinates);
+
+            var projectModules = await _projectModuleRepository.FindAsync(pm => pm.ProjectId == projectId, query => query.Include(pm => pm.Module));
             var projectMaterials = await GetProjectMaterialByProjectId(projectId);
             var projectLabors = await GetProjectLaborByProjectId(projectId);
             var projectModuleComposites = await GetProjectModuleCompositesByProjectId(projectId);
-
             var orphanMaterials = await GetProjectMaterialByProjectId(projectId, true);
             var orphanLabors = await GetProjectLaborByProjectId(projectId, true);
             var systems = await _systemRepository.GetAllAsync();
@@ -210,7 +205,7 @@ namespace Darwin.API.Services
                 SystemName = systems.FirstOrDefault(s => s.SystemId == pm.Module.SystemId)?.Description,
                 Description = pm.Module.Description,
                 Quantity = projectModules.Where(p => p.ModuleId == pm.ModuleId).Sum(p => p.Quantity),
-                Total = projectMaterials.Where(p => p.ModuleId == pm.ModuleId).Sum(p => p.Quantity * p.UnitPrice) 
+                Total = projectMaterials.Where(p => p.ModuleId == pm.ModuleId).Sum(p => p.Quantity * p.UnitPrice)
                       + projectLabors.Where(p => p.ModuleId == pm.ModuleId).Sum(p => p.Quantity * p.HourlyRate),
                 ModuleMaterials = projectMaterials.Where(p => p.ModuleId == pm.ModuleId).Select(p => new ProjectMaterialDto
                 {
@@ -231,7 +226,9 @@ namespace Darwin.API.Services
                     LaborId = p.LaborId,
                     LaborType = p.Labor.LaborType,
                     Quantity = p.Quantity,
-                    HourlyRate = p.HourlyRate
+                    HourlyRate = p.HourlyRate,
+                    AllowanceAmount = p.ProjectAllowance?.Amount ?? 0,
+                    AllowanceQuantity = p.ProjectAllowance?.Quantity ?? 0
                 }).ToList()
             }).ToList();
 
@@ -259,7 +256,9 @@ namespace Darwin.API.Services
                     LaborId = pl.LaborId,
                     LaborType = pl.Labor.LaborType,
                     Quantity = pl.Quantity,
-                    HourlyRate = pl.HourlyRate
+                    HourlyRate = pl.HourlyRate,
+                    AllowanceAmount = pl.ProjectAllowance?.Amount ?? 0,
+                    AllowanceQuantity = pl.ProjectAllowance?.Quantity ?? 0
                 }).ToList()
             };
 
@@ -272,7 +271,7 @@ namespace Darwin.API.Services
                 ProjectId = projectId,
                 TotalCost = (decimal)totalCost,
                 ProfitMargin = (await _projectService.GetProjectById(projectId)).ProfitMargin,
-                Distance = await _googleMapsService.GetDrivingDistanceAsync(project.LocationCoordinates, project.DistributionCenter.LocationCoordinates),
+                Distance = drivingDistance,
                 Modules = modules,
                 ModulesComposite = projectModuleComposites.ToList(),
                 ParentLessCosts = orphanModule
@@ -288,78 +287,61 @@ namespace Darwin.API.Services
                 {
                     return false;
                 }
-                else
-                {
-                    project.ProfitMargin = projectCostDetailsDto.ProfitMargin;
-                    await _projectService.UpdateProject(project);
-                }
 
-            // Update module materials and labor prices/rates
+                project.ProfitMargin = projectCostDetailsDto.ProfitMargin;
+                await _projectService.UpdateProject(project);
+
                 foreach (var module in projectCostDetailsDto.Modules)
                 {
-                    // Update materials
-                    foreach (var materialDto in module.ModuleMaterials ?? new List<ProjectMaterialDto>())
-                    {
-                        var projectMaterial = await _projectMaterialsRepository.GetByIdAsync(materialDto.ProjectMaterialId);
-                        if (projectMaterial != null)
-                        {
-                            projectMaterial.UnitPrice = materialDto.UnitPrice??projectMaterial.UnitPrice;
-                            await _projectMaterialsRepository.UpdateAsync(projectMaterial);
-                        }
-                    }
-
-                    // Update labor
-                    foreach (var laborDto in module.ModuleLabors ?? new List<ProjectLaborDto>())
-                    {
-                        var projectLabor = await _projectLaborRepository.GetByIdAsync(laborDto.ProjectLaborId);
-                        if (projectLabor != null)
-                        {
-                            projectLabor.HourlyRate = laborDto.HourlyRate??projectLabor.HourlyRate;
-                            await _projectLaborRepository.UpdateAsync(projectLabor);
-                        }
-                    }
+                    await UpdateModuleMaterialsAsync(module.ModuleMaterials);
+                    await UpdateModuleLaborsAsync(module.ModuleLabors);
                 }
 
-                // Update composite modules
                 foreach (var composite in projectCostDetailsDto.ModulesComposite)
                 {
                     foreach (var detail in composite.CompositeDetails ?? new List<ModuleCompositeDetailDto>())
                     {
                         if (detail.Module != null)
                         {
-                            // Update materials
-                            foreach (var materialDto in detail.Module.ModuleMaterials ?? new List<ProjectMaterialDto>())
-                            {
-                                var projectMaterial = await _projectMaterialsRepository.GetByIdAsync(materialDto.ProjectMaterialId);
-                                if (projectMaterial != null)
-                                {
-                                    projectMaterial.UnitPrice = materialDto.UnitPrice ?? projectMaterial.UnitPrice;
-                                    await _projectMaterialsRepository.UpdateAsync(projectMaterial);
-                                }
-                            }
-
-                            // Update labor
-                            foreach (var laborDto in detail.Module.ModuleLabors ?? new List<ProjectLaborDto>())
-                            {
-                                var projectLabor = await _projectLaborRepository.GetByIdAsync(laborDto.ProjectLaborId);
-                                if (projectLabor != null)
-                                {
-                                    projectLabor.HourlyRate = laborDto.HourlyRate ?? projectLabor.HourlyRate;
-                                    await _projectLaborRepository.UpdateAsync(projectLabor);
-                                }
-                            }
+                            await UpdateModuleMaterialsAsync(detail.Module.ModuleMaterials);
+                            await UpdateModuleLaborsAsync(detail.Module.ModuleLabors);
                         }
                     }
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
                 // Log exception
                 throw new Exception($"Error updating project costs: {ex.Message}", ex);
-                return false;
             }
-            return true; 
         }
 
+        private async Task UpdateModuleMaterialsAsync(IEnumerable<ProjectMaterialDto> materials)
+        {
+            foreach (var materialDto in materials ?? new List<ProjectMaterialDto>())
+            {
+                var projectMaterial = await _projectMaterialsRepository.GetByIdAsync(materialDto.ProjectMaterialId);
+                if (projectMaterial != null)
+                {
+                    projectMaterial.UnitPrice = materialDto.UnitPrice ?? projectMaterial.UnitPrice;
+                    await _projectMaterialsRepository.UpdateAsync(projectMaterial);
+                }
+            }
+        }
+
+        private async Task UpdateModuleLaborsAsync(IEnumerable<ProjectLaborDto> labors)
+        {
+            foreach (var laborDto in labors ?? new List<ProjectLaborDto>())
+            {
+                var projectLabor = await _projectLaborRepository.GetByIdAsync(laborDto.ProjectLaborId);
+                if (projectLabor != null)
+                {
+                    projectLabor.HourlyRate = laborDto.HourlyRate ?? projectLabor.HourlyRate;
+                    await _projectLaborRepository.UpdateAsync(projectLabor);
+                }
+            }
+        }
     }
 }

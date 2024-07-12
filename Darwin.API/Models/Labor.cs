@@ -19,7 +19,5 @@ public partial class Labor
 
     public virtual ICollection<ModulesLabor> ModulesLabors { get; set; } = new List<ModulesLabor>();
 
-    public virtual ICollection<ProjectAllowance> ProjectAllowances { get; set; } = new List<ProjectAllowance>();
-
     public virtual ICollection<ProjectLabor> ProjectLabors { get; set; } = new List<ProjectLabor>();
 }
