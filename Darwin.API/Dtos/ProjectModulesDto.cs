@@ -1,4 +1,3 @@
-using System;
 namespace Darwin.API.Dtos
 {
     public class ProjectModuleDto

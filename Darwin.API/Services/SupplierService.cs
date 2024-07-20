@@ -1,10 +1,9 @@
-﻿using System;
-using Darwin.API.Models;
+﻿using Darwin.API.Models;
 using Darwin.API.Repositories;
 
 namespace Darwin.API.Services
 {
-    
+
     public interface ISupplierService
     {
         Task<IEnumerable<Supplier>> GetAllSuppliers();
@@ -40,6 +39,7 @@ namespace Darwin.API.Services
 
         public async Task<Supplier> UpdateSupplier(Supplier supplier)
         {
+            supplier.LastModified = DateTime.Now;
             return await _supplierRepository.UpdateAsync(supplier);
         }
 

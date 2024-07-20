@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Darwin.API.Models;
+﻿namespace Darwin.API.Models;
 
 public partial class ModulesLabor
 {
@@ -14,6 +11,8 @@ public partial class ModulesLabor
     public double HoursRequired { get; set; }
 
     public DateTime LastModified { get; set; }
+
+    public int Quantity { get; set; }
 
     public virtual Labor Labor { get; set; } = null!;
 

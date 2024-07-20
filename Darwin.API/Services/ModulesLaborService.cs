@@ -1,5 +1,4 @@
-﻿using System;
-using Darwin.API.Dtos;
+﻿using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
 
@@ -53,7 +52,8 @@ namespace Darwin.API.Services
                 ModuleName = ml.Module.ModuleName,
                 LaborId = ml.LaborId,
                 LaborType = ml.Labor.LaborType,
-                HoursRequired = ml.HoursRequired
+                HoursRequired = ml.HoursRequired,
+                Quantity = ml.Quantity,
             }).ToList();
         }
     }

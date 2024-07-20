@@ -1,5 +1,4 @@
 ﻿using Darwin.API.Dtos;
-using Darwin.API.Models;
 using Darwin.API.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,13 +16,13 @@ namespace Darwin.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Material>>> GetAllMaterials()
+        public async Task<ActionResult<IEnumerable<MaterialDto>>> GetAllMaterials()
         {
             return Ok(await _materialService.GetAllMaterials());
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Material>> GetMaterialById(int id)
+        public async Task<ActionResult<MaterialDto>> GetMaterialById(int id)
         {
             var material = await _materialService.GetMaterialById(id);
             if (material == null)
@@ -37,7 +36,7 @@ namespace Darwin.API.Controllers
         public async Task<ActionResult<MaterialDto>> AddMaterial(MaterialDto material)
         {
             var newMaterial = await _materialService.AddMaterial(material);
-            return CreatedAtAction(nameof(GetMaterialById), new { id = newMaterial.MaterialId }, newMaterial);
+            return CreatedAtAction(nameof(GetMaterialById), new { id = newMaterial?.MaterialId }, newMaterial);
         }
 
         [HttpPut("{id}")]

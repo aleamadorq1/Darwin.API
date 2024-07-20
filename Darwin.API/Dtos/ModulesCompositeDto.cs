@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Darwin.API.Dtos
+﻿namespace Darwin.API.Dtos
 {
     public class ModulesCompositeDto
     {

@@ -1,5 +1,4 @@
-﻿using System;
-using Darwin.API.Models;
+﻿using Darwin.API.Models;
 using Darwin.API.Repositories;
 
 namespace Darwin.API.Services
@@ -39,6 +38,7 @@ namespace Darwin.API.Services
 
         public async Task<Client> UpdateClient(Client client)
         {
+            client.LastModified = DateTime.Now;
             return await _clientRepository.UpdateAsync(client);
         }
 

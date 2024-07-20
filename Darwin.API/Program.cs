@@ -3,7 +3,6 @@ using Darwin.API.Repositories;
 using Darwin.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,6 +57,8 @@ builder.Services.AddScoped<IProjectDetailsService, ProjectDetailService>();
 builder.Services.AddScoped<IProjectCostsService, ProjectCostsService>();
 builder.Services.AddScoped<ISystemService, SystemService>();
 builder.Services.AddScoped<IDistributionCenterService, DistributionCenterService>();
+builder.Services.AddScoped<IHandlingCostService, HandlingCostService>();
+builder.Services.AddScoped<ITaxRateService, TaxRateService>();
 
 // Register GoogleMapsService with API Key
 builder.Services.AddHttpClient<GoogleMapsService>();

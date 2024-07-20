@@ -1,5 +1,4 @@
-﻿using System;
-using Darwin.API.Dtos;
+﻿using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -8,9 +7,8 @@ namespace Darwin.API.Services
 {
     public interface IModuleService
     {
-        Task<IEnumerable<Module>> GetAllModules();
         Task<ModuleDto> GetModuleById(int id);
-        Task<Module> AddModule(Module module);
+        Task<ModuleDto> AddModule(ModuleDto module);
         Task<ModuleDto> UpdateModule(ModuleDto module);
         Task<bool> DeleteModule(int id);
         Task<IEnumerable<ModuleDto>> GetModuleIndex();
@@ -31,11 +29,6 @@ namespace Darwin.API.Services
             _moduleLaborRepository = modulesLaborRepository;
             _context = dbContext;
             _systemRepository = systemRepository;
-        }
-
-        public async Task<IEnumerable<Module>> GetAllModules()
-        {
-            return await _moduleRepository.GetAllAsync();
         }
 
         public async Task<ModuleDto> GetModuleById(int id)
@@ -72,9 +65,37 @@ namespace Darwin.API.Services
             }).FirstOrDefault() ?? new ModuleDto();
         }
 
-        public async Task<Module> AddModule(Module module)
+        public async Task<ModuleDto> AddModule(ModuleDto module)
         {
-            return await _moduleRepository.AddAsync(module);
+           var newModule = new Module
+            {
+                ModuleName = module.ModuleName?? "",
+                SystemId = module.SystemId,
+                Description = module.Description ?? "",
+                LastModified = DateTime.Now
+            };
+            var result = await _moduleRepository.AddAsync(newModule);
+            module.ModuleId = result.ModuleId;
+            if (module.ModuleMaterials != null)
+            {
+                await _moduleMaterialRepository.AddRangeAsync(module.ModuleMaterials.Select(m => new ModulesMaterial
+                {
+                    ModuleId = result.ModuleId,
+                    MaterialId = m.MaterialId,
+                    Quantity = m.Quantity
+                }));
+            }
+            if (module.ModuleLabors != null)
+            {
+                await _moduleLaborRepository.AddRangeAsync(module.ModuleLabors.Select(l => new ModulesLabor
+                {
+                    ModuleId = result.ModuleId,
+                    LaborId = l.LaborId,
+                    HoursRequired = l.HoursRequired 
+                }));
+            }
+
+            return module;
         }
 
         public async Task<bool> DeleteModule(int id)
@@ -126,6 +147,7 @@ namespace Darwin.API.Services
                 existingModule.ModuleName = module.ModuleName ?? existingModule.ModuleName;
                 existingModule.SystemId = module.SystemId;
                 existingModule.Description = module.Description ?? existingModule.Description;
+                existingModule.LastModified = DateTime.Now;
             }
             foreach (var material in module.ModuleMaterials ?? new List<ModuleMaterialsDto>())
             {
@@ -145,13 +167,14 @@ namespace Darwin.API.Services
                 {
                     existingMaterial.MaterialId = material.MaterialId;
                     existingMaterial.Quantity = material.Quantity;
+                    existingMaterial.LastModified = DateTime.Now;
                     await _moduleMaterialRepository.UpdateAsync(existingMaterial);
                 }
             }
             
             foreach (var existingMaterial in existingModule.ModulesMaterials)
             {
-                if (!module.ModuleMaterials.Any(m => m.MaterialId == existingMaterial.MaterialId))
+                if (module.ModuleMaterials != null && !module.ModuleMaterials.Any(m => m.MaterialId == existingMaterial.MaterialId))
                 {
                     await _moduleMaterialRepository.DeleteAsync(existingMaterial.ModuleMaterialId);
                 }
@@ -167,20 +190,23 @@ namespace Darwin.API.Services
                     {
                         ModuleId = module.ModuleId,
                         LaborId = labor.LaborId,
-                        HoursRequired = labor.HoursRequired ?? 0
+                        HoursRequired = labor.HoursRequired,
+                        Quantity = (int)labor.Quantity
                     };
                     await _moduleLaborRepository.AddAsync(existingLabor);
                 }
                 else
                 {
                     existingLabor.LaborId = labor.LaborId;
-                    existingLabor.HoursRequired = labor.HoursRequired ?? 0;
+                    existingLabor.HoursRequired = labor.HoursRequired;
+                    existingLabor.Quantity = (int)labor.Quantity;
+                    existingLabor.LastModified = DateTime.Now;
                     await _moduleLaborRepository.UpdateAsync(existingLabor);
                 }
             }
             foreach (var existingLabor in existingModule.ModulesLabors)
             {
-                if (!module.ModuleLabors.Any(l => l.LaborId == existingLabor.LaborId))
+                if (module.ModuleLabors != null && !module.ModuleLabors.Any(l => l.ModuleLaborId == existingLabor.ModuleLaborId))
                 {
                     await _moduleLaborRepository.DeleteAsync(existingLabor.ModuleLaborId);
                 }

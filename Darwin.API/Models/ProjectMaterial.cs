@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Darwin.API.Models;
+﻿namespace Darwin.API.Models;
 
 public partial class ProjectMaterial
 {
@@ -13,8 +10,6 @@ public partial class ProjectMaterial
 
     public double UnitPrice { get; set; }
 
-    public string TaxStatus { get; set; } = null!;
-
     public double CifPrice { get; set; }
 
     public DateTime LastModified { get; set; }
@@ -22,6 +17,10 @@ public partial class ProjectMaterial
     public int Quantity { get; set; }
 
     public int? ModuleId { get; set; }
+
+    public double HandlingCost { get; set; }
+
+    public double TaxRate { get; set; }
 
     public virtual Material Material { get; set; } = null!;
 

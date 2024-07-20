@@ -1,4 +1,3 @@
-using System;
 namespace Darwin.API.Dtos
 {
     public class ProjectLaborDto
@@ -12,6 +11,7 @@ namespace Darwin.API.Dtos
         public string? LaborType { get; set; }
         public double Quantity { get; set; }
         public double? HourlyRate { get; set; }
+        public double? HoursRequired { get; set; }
         public double? AllowanceAmount { get; set; }
 
         public double? AllowanceQuantity { get; set; }

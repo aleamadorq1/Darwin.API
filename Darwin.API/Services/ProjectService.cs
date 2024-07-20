@@ -1,9 +1,6 @@
 ﻿using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Darwin.API.Services
 {
@@ -11,9 +8,9 @@ namespace Darwin.API.Services
     public interface IProjectService
     {
         Task<IEnumerable<ProjectDto>> GetAllProjects();
-        Task<ProjectDto> GetProjectById(int id);
+        Task<ProjectDto?> GetProjectById(int id);
         Task<Project> AddProject(ProjectDto project);
-        Task<Project> UpdateProject(ProjectDto project);
+        Task<ProjectDto?> UpdateProject(ProjectDto project);
         Task<bool> DeleteProject(int id);
     }
 
@@ -22,12 +19,14 @@ namespace Darwin.API.Services
         private readonly IRepository<Project> _projectRepository;
         private readonly IRepository<Client> _clientRepository;
         private readonly IRepository<Organization> _organizationRepository;
+        private readonly IProjectDetailsService _projectDetailsService;
 
-        public ProjectService(IRepository<Project> projectRepository, IRepository<Client> clientRepository, IRepository<Organization> organizationRepository)
+        public ProjectService(IRepository<Project> projectRepository, IRepository<Client> clientRepository, IRepository<Organization> organizationRepository, IProjectDetailsService projectDetailsService)
         {
             _projectRepository = projectRepository;
             _clientRepository = clientRepository;
             _organizationRepository = organizationRepository;
+            _projectDetailsService = projectDetailsService;
         }
 
         public async Task<IEnumerable<ProjectDto>> GetAllProjects()
@@ -54,10 +53,10 @@ namespace Darwin.API.Services
                 OrganizationId = p.OrganizationId,
                 OrganizationName = organizations.FirstOrDefault(o => o.OrganizationId == p.OrganizationId)?.OrganizationName,
                 LastModified = p.LastModified
-            }).ToList();
+            }).OrderByDescending(p => p.LastModified).ToList();
         }
 
-        public async Task<ProjectDto> GetProjectById(int id)
+        public async Task<ProjectDto?> GetProjectById(int id)
         {
             var project = await _projectRepository.GetByIdAsync(id);
             if (project == null) return null;
@@ -106,7 +105,7 @@ namespace Darwin.API.Services
             return await _projectRepository.AddAsync(newProject);
         }
 
-        public async Task<Project> UpdateProject(ProjectDto project)
+        public async Task<ProjectDto?> UpdateProject(ProjectDto project)
         {
             var existingProject = await _projectRepository.GetByIdAsync(project.ProjectId);
             if (existingProject == null) return null;
@@ -123,9 +122,16 @@ namespace Darwin.API.Services
             existingProject.LocationAddress = project.LocationAddress;
             existingProject.LocationCoordinates = project.LocationCoordinates;
             existingProject.ProfitMargin = project.ProfitMargin;
+
+            var result =  await _projectRepository.UpdateAsync(existingProject);
             
-            
-            return await _projectRepository.UpdateAsync(existingProject);
+            var projectDetails = await _projectDetailsService.GetProjectDetails(existingProject.ProjectId);
+            if (projectDetails != null)
+            {
+                await _projectDetailsService.UpsertProjectDetails(projectDetails, existingProject.ProjectId);
+            }
+
+            return project;
         }
 
         public async Task<bool> DeleteProject(int id)

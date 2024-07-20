@@ -11,7 +11,8 @@ namespace Darwin.API.Dtos
 
         public double? UnitPrice { get; set; }
 
-        public string? TaxStatus { get; set; } = null!;
+        public double? TaxRate { get; set; } = null!;
+        public double? HandlingCost { get; set; } = null!;
 
         public double? CifPrice { get; set; }
 

@@ -1,5 +1,4 @@
-﻿using System;
-namespace Darwin.API.Dtos
+﻿namespace Darwin.API.Dtos
 {
     public class MaterialDto
     {
@@ -12,7 +11,10 @@ namespace Darwin.API.Dtos
         public int SupplierId { get; set; }
         public double UnitPrice { get; set; }
         public string Uom { get; set; } = "";
-        public string TaxStatus { get; set; } = "";
+        public int TaxRateId { get; set; }
+        public double? TaxRate { get; set; }
+        public int HandlingCostId { get; set; }
+        public double? HandlingCost { get; set; }
         public double? CifPrice { get; set; }
     }
 }

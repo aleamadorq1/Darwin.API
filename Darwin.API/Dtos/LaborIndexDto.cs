@@ -1,7 +1,6 @@
-﻿using System;
-namespace Darwin.API.Dtos
+﻿namespace Darwin.API.Dtos
 {
-	public class LaborIndexDto
+    public class LaborIndexDto
 	{
         public long LaborId { get; set; }
 

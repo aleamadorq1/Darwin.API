@@ -1,12 +1,8 @@
-﻿using System;
-using System.Data;
-using Darwin.API.Controllers;
+﻿using System.Data;
 using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 
 
 namespace Darwin.API.Services
@@ -51,7 +47,7 @@ namespace Darwin.API.Services
             _projectAllowanceRepository = projectAllowanceRepository;
             _googleMapsService = googleMapsService;
         }
-        private async Task<Project> GetProjectWithDetailsAsync(int projectId)
+        private async Task<Project?> GetProjectWithDetailsAsync(int projectId)
         {
             var projectQuery = await _projectRepository.FindAsync(p => p.ProjectId == projectId, query => query.Include(p => p.DistributionCenter));
             return projectQuery.FirstOrDefault();
@@ -92,7 +88,8 @@ namespace Darwin.API.Services
                 }
                 else
                 {
-                    var material = await _materialRepository.GetByIdAsync(materialDto.MaterialId);
+                    var query = await _materialRepository.FindAsync(m => m.MaterialId == materialDto.MaterialId, q => q.Include(m => m.TaxRate).Include(m => m.HandlingCost));
+                    var material = query.FirstOrDefault();
                     var newMaterial = new ProjectMaterial
                     {
                         ProjectId = projectId,
@@ -100,8 +97,9 @@ namespace Darwin.API.Services
                         Quantity = materialDto.Quantity,
                         LastModified = DateTime.UtcNow,
                         UnitPrice = material.UnitPrice,
-                        TaxStatus = material.TaxStatus,
-                        CifPrice = material.CifPrice ?? 0,
+                        TaxRate = material.TaxRate.Rate,
+                        HandlingCost = material.HandlingCost.Cost,
+                        CifPrice = material.CifPrice,
                         ModuleId = null
                     };
                     await _projectMaterialRepository.AddAsync(newMaterial);
@@ -129,10 +127,14 @@ namespace Darwin.API.Services
                 {
                     var existingAllowanceItem = (await _projectAllowanceRepository.FindAsync(p => p.ProjectLaborId == existingLaborItem.ProjectLaborId)).FirstOrDefault();
                     existingLaborItem.Quantity = (int)laborDto.Quantity;
+                    existingLaborItem.HoursRequired = laborDto.HoursRequired;
                     existingLaborItem.LastModified = DateTime.UtcNow;
-                    UpdateAllowance(existingAllowanceItem, labor, drivingDistance, laborDto.Quantity);
+                    if (existingAllowanceItem != null)
+                    {
+                        UpdateAllowance(existingAllowanceItem, labor, drivingDistance, laborDto.Quantity);
+                        await _projectAllowanceRepository.UpdateAsync(existingAllowanceItem);
+                    }
                     await _projectLaborRepository.UpdateAsync(existingLaborItem);
-                    await _projectAllowanceRepository.UpdateAsync(existingAllowanceItem);
                 }
                 else
                 {
@@ -236,7 +238,8 @@ namespace Darwin.API.Services
 
             foreach (var moduleMaterial in moduleMaterials)
             {
-                var material = await _materialRepository.GetByIdAsync(moduleMaterial.MaterialId);
+                var query = await _materialRepository.FindAsync(m => m.MaterialId == moduleMaterial.MaterialId, q => q.Include(m => m.TaxRate).Include(m => m.HandlingCost));
+                var material = query.FirstOrDefault();
                 var existingProjectMaterial = existingModuleMaterials.FirstOrDefault(m => m.ModuleId == moduleMaterial.ModuleId && m.MaterialId == moduleMaterial.MaterialId);
 
                 if (existingProjectMaterial != null)
@@ -254,8 +257,9 @@ namespace Darwin.API.Services
                         Quantity = (int)moduleMaterial.Quantity,
                         LastModified = DateTime.UtcNow,
                         UnitPrice = material.UnitPrice,
-                        TaxStatus = material.TaxStatus,
-                        CifPrice = material.CifPrice ?? 0,
+                        TaxRate = material.TaxRate.Rate,
+                        HandlingCost = material.HandlingCost.Cost,
+                        CifPrice = material.CifPrice,
                         ModuleId = moduleId
                     };
                     await _projectMaterialRepository.AddAsync(newProjectMaterial);
@@ -282,11 +286,22 @@ namespace Darwin.API.Services
                 if (existingLaborItem != null)
                 {
                     var existingAllowanceItem = (await _projectAllowanceRepository.FindAsync(p => p.ProjectLaborId == existingLaborItem.ProjectLaborId)).FirstOrDefault();
-                    existingLaborItem.Quantity = (int)moduleLabor.HoursRequired;
+                    existingLaborItem.Quantity = moduleLabor.Quantity;
+                    existingLaborItem.HoursRequired = moduleLabor.HoursRequired;
                     existingLaborItem.LastModified = DateTime.UtcNow;
-                    UpdateAllowance(existingAllowanceItem, labor, drivingDistance, moduleLabor.HoursRequired);
                     await _projectLaborRepository.UpdateAsync(existingLaborItem);
-                    await _projectAllowanceRepository.UpdateAsync(existingAllowanceItem);
+                    
+                    if (existingAllowanceItem == null)
+                    {
+                        var newAllowance = CreateNewAllowance(existingLaborItem, labor, drivingDistance, moduleLabor.HoursRequired);
+                        await _projectAllowanceRepository.AddAsync(newAllowance);
+                    }
+                    else
+                    {
+                        UpdateAllowance(existingAllowanceItem, labor, drivingDistance, moduleLabor.HoursRequired);
+                        await _projectAllowanceRepository.UpdateAsync(existingAllowanceItem);
+                    }
+                    
                 }
                 else
                 {
@@ -294,7 +309,8 @@ namespace Darwin.API.Services
                     {
                         ProjectId = projectId,
                         LaborId = moduleLabor.LaborId,
-                        Quantity = (int)moduleLabor.HoursRequired,
+                        Quantity = moduleLabor.Quantity,
+                        HoursRequired = moduleLabor.HoursRequired,
                         LastModified = DateTime.UtcNow,
                         HourlyRate = labor.HourlyRate,
                         ModuleId = moduleId
@@ -340,7 +356,7 @@ namespace Darwin.API.Services
 
                 var moduleComp = existingModulesComposite.FirstOrDefault(m => m.ModuleCompositeId == moduleCompositeDto.ModuleCompositeId);
 
-                foreach (var detail in moduleComp?.ModuleComposite.ModuleCompositeDetails ?? new List<ModuleCompositeDetail>())
+                foreach (var detail in moduleComp?.ModuleComposite?.ModuleCompositeDetails ?? new List<ModuleCompositeDetail>())
                 {
                     var moduleCompDetailModule = detail.Module;
 
@@ -384,23 +400,6 @@ namespace Darwin.API.Services
             return projectDetails;
         }
 
-
-
-        private IList<ProjectMaterial> MapProjectMaterials(IList<ProjectMaterialDto> projectMaterials)
-        {
-            return projectMaterials.Select(pm => new ProjectMaterial
-            {
-                ProjectId = pm.ProjectId,
-                MaterialId = pm.MaterialId,
-                Quantity = pm.Quantity,
-                LastModified = DateTime.UtcNow,
-                UnitPrice = pm.UnitPrice ?? 0,
-                TaxStatus = pm.TaxStatus,
-                CifPrice = pm.CifPrice ?? 0,
-                ModuleId = pm.ModuleId == 0 ? null : pm.ModuleId,
-            }).ToList();
-        }
-
         private IList<ProjectMaterialDto> MapProjectMaterialsDto(IEnumerable<ProjectMaterial>? projectMaterials)
         {
             return projectMaterials.Select(pm => new ProjectMaterialDto
@@ -411,23 +410,10 @@ namespace Darwin.API.Services
                 Quantity = pm.Quantity,
                 LastModified = pm.LastModified,
                 UnitPrice = pm.UnitPrice,
-                TaxStatus = pm.TaxStatus,
+                TaxRate = pm.TaxRate,
+                HandlingCost = pm.HandlingCost,
                 CifPrice = pm.CifPrice,
                 ModuleId = pm.ModuleId == 0 ? null : pm.ModuleId,
-            }).ToList();
-        }
-
-        private IList<ProjectLabor> MapProjectLabor(IList<ProjectLaborDto> projectLabor)
-        {
-            return projectLabor.Select(pl => new ProjectLabor
-            {
-                ProjectLaborId = pl.ProjectLaborId,
-                ProjectId = pl.ProjectId,
-                LaborId = pl.LaborId,
-                Quantity = (int)pl.Quantity,
-                LastModified = DateTime.UtcNow,
-                HourlyRate = pl.HourlyRate?? 0,
-                ModuleId = pl.ModuleId == 0 ? null : pl.ModuleId,
             }).ToList();
         }
 
@@ -446,17 +432,6 @@ namespace Darwin.API.Services
             }).ToList();
         }
 
-        private IList<ProjectModule> MapProjectModules(IList<ProjectModuleDto> projectModules)
-        {
-            return projectModules.Select(pm => new ProjectModule
-            {
-                ProjectId = pm.ProjectId,
-                ModuleId = pm.ModuleId ?? 0,
-                Quantity = pm.Quantity,
-                ProjectModuleId = pm.ProjectModuleId
-            }).ToList();
-        }
-
         private IList<ProjectModuleDto> MapProjectModulesDto(IEnumerable<ProjectModule>? projectModules)
         {
             return projectModules.Select(pm => new ProjectModuleDto
@@ -465,17 +440,6 @@ namespace Darwin.API.Services
                 ModuleId = pm.ModuleId,
                 Quantity = pm.Quantity,
                 ProjectModuleId = pm.ProjectModuleId
-            }).ToList();
-        }
-
-        private IList<ProjectModuleComposite> MapProjectModulesComposite(IList<ProjectModuleCompositesDto> projectModules)
-        {
-            return projectModules.Select(pm => new ProjectModuleComposite
-            {
-                ProjectId = pm.ProjectId,
-                Quantity = pm.Quantity,
-                ModuleCompositeId = pm.ModuleCompositeId,
-                ProjectModuleCompositeId = pm.ProjectModuleCompositeId,
             }).ToList();
         }
 

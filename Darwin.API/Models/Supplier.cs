@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Darwin.API.Models;
+﻿namespace Darwin.API.Models;
 
 public partial class Supplier
 {

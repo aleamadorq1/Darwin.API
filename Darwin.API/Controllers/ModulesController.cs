@@ -1,5 +1,4 @@
-﻿using System;
-using Darwin.API.Dtos;
+﻿using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -17,12 +16,6 @@ namespace Darwin.API.Controllers
             _moduleService = moduleService;
         }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Module>>> GetAllModules()
-        {
-            return Ok(await _moduleService.GetAllModules());
-        }
-
         [HttpGet("{id}")]
         public async Task<ActionResult<Module>> GetModuleById(int id)
         {
@@ -35,7 +28,7 @@ namespace Darwin.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Module>> AddModule(Module module)
+        public async Task<ActionResult<ModuleDto>> AddModule(ModuleDto module)
         {
             var newModule = await _moduleService.AddModule(module);
             return Ok();

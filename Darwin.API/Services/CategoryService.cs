@@ -1,5 +1,4 @@
-﻿using System;
-using Darwin.API.Dtos;
+﻿using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
 

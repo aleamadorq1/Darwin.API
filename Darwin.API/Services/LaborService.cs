@@ -1,5 +1,4 @@
-﻿using System;
-using Darwin.API.Dtos;
+﻿using Darwin.API.Dtos;
 using Darwin.API.Models;
 using Darwin.API.Repositories;
 
@@ -41,6 +40,7 @@ namespace Darwin.API.Services
 
         public async Task<Labor> UpdateLabor(Labor labor)
         {
+            labor.LastModified = DateTime.Now;
             return await _laborRepository.UpdateAsync(labor);
         }
 

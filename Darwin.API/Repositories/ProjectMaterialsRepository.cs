@@ -1,6 +1,4 @@
-﻿using System;
-using Darwin.API.Models;
-using Darwin.API.Repositories;
+﻿using Darwin.API.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Darwin.API.Repositories

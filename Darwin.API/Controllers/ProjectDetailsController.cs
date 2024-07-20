@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Darwin.API.Dtos;
-using Darwin.API.Models;
 using Darwin.API.Services;
 
 namespace Darwin.API.Controllers

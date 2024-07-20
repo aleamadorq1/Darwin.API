@@ -21,6 +21,10 @@ public partial class AlphaDbContext : DbContext
 
     public virtual DbSet<DistributionCenter> DistributionCenters { get; set; }
 
+    public virtual DbSet<HandlingCost> HandlingCosts { get; set; }
+
+    public virtual DbSet<InsuranceCost> InsuranceCosts { get; set; }
+
     public virtual DbSet<Labor> Labors { get; set; }
 
     public virtual DbSet<Material> Materials { get; set; }
@@ -52,6 +56,10 @@ public partial class AlphaDbContext : DbContext
     public virtual DbSet<Supplier> Suppliers { get; set; }
 
     public virtual DbSet<System> Systems { get; set; }
+
+    public virtual DbSet<TaxRate> TaxRates { get; set; }
+
+    public virtual DbSet<TransportationRate> TransportationRates { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -99,6 +107,36 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name");
         });
 
+        modelBuilder.Entity<HandlingCost>(entity =>
+        {
+            entity.ToTable("Handling_Costs");
+
+            entity.HasIndex(e => e.HandlingCostId, "IX_Handling_Costs_handling_cost_id").IsUnique();
+
+            entity.Property(e => e.HandlingCostId).HasColumnName("handling_cost_id");
+            entity.Property(e => e.Cost).HasColumnName("cost");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.LastModified)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("TIMESTAMP")
+                .HasColumnName("last_modified");
+        });
+
+        modelBuilder.Entity<InsuranceCost>(entity =>
+        {
+            entity.ToTable("Insurance_Costs");
+
+            entity.HasIndex(e => e.InsuranceCostId, "IX_Insurance_Costs_insurance_cost_id").IsUnique();
+
+            entity.Property(e => e.InsuranceCostId).HasColumnName("insurance_cost_id");
+            entity.Property(e => e.Cost).HasColumnName("cost");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.LastModified)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("TIMESTAMP")
+                .HasColumnName("last_modified");
+        });
+
         modelBuilder.Entity<Labor>(entity =>
         {
             entity.ToTable("Labor");
@@ -119,6 +157,7 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.MaterialId).HasColumnName("material_id");
             entity.Property(e => e.CategoryId).HasColumnName("category_id");
             entity.Property(e => e.CifPrice).HasColumnName("cif_price");
+            entity.Property(e => e.HandlingCostId).HasColumnName("handling_cost_id");
             entity.Property(e => e.LastModified)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
@@ -126,7 +165,7 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.MaterialName).HasColumnName("material_name");
             entity.Property(e => e.Sku).HasColumnName("sku");
             entity.Property(e => e.SupplierId).HasColumnName("supplier_id");
-            entity.Property(e => e.TaxStatus).HasColumnName("tax_status");
+            entity.Property(e => e.TaxRateId).HasColumnName("tax_rate_id");
             entity.Property(e => e.UnitPrice).HasColumnName("unit_price");
             entity.Property(e => e.Uom).HasColumnName("uom");
 
@@ -134,8 +173,16 @@ public partial class AlphaDbContext : DbContext
                 .HasForeignKey(d => d.CategoryId)
                 .OnDelete(DeleteBehavior.ClientSetNull);
 
+            entity.HasOne(d => d.HandlingCost).WithMany(p => p.Materials)
+                .HasForeignKey(d => d.HandlingCostId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
+
             entity.HasOne(d => d.Supplier).WithMany(p => p.Materials)
                 .HasForeignKey(d => d.SupplierId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
+
+            entity.HasOne(d => d.TaxRate).WithMany(p => p.Materials)
+                .HasForeignKey(d => d.TaxRateId)
                 .OnDelete(DeleteBehavior.ClientSetNull);
         });
 
@@ -196,6 +243,7 @@ public partial class AlphaDbContext : DbContext
                 .HasColumnType("TIMESTAMP")
                 .HasColumnName("last_modified");
             entity.Property(e => e.ModuleId).HasColumnName("module_id");
+            entity.Property(e => e.Quantity).HasColumnName("quantity");
 
             entity.HasOne(d => d.Labor).WithMany(p => p.ModulesLabors)
                 .HasForeignKey(d => d.LaborId)
@@ -289,7 +337,7 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.ProjectLaborId).HasColumnName("project_labor_id");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
 
-            entity.HasOne(d => d.ProjectLabor).WithOne(p => p.ProjectAllowance).HasForeignKey<ProjectAllowance>(d => d.ProjectLaborId).OnDelete(DeleteBehavior.ClientCascade);
+            entity.HasOne(d => d.ProjectLabor).WithOne(p => p.ProjectAllowance).HasForeignKey<ProjectAllowance>(d => d.ProjectLaborId);
         });
 
         modelBuilder.Entity<ProjectLabor>(entity =>
@@ -300,6 +348,7 @@ public partial class AlphaDbContext : DbContext
 
             entity.Property(e => e.ProjectLaborId).HasColumnName("project_labor_id");
             entity.Property(e => e.HourlyRate).HasColumnName("hourly_rate");
+            entity.Property(e => e.HoursRequired).HasColumnName("hours_required");
             entity.Property(e => e.LaborId).HasColumnName("labor_id");
             entity.Property(e => e.LastModified)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
@@ -326,6 +375,7 @@ public partial class AlphaDbContext : DbContext
 
             entity.Property(e => e.ProjectMaterialId).HasColumnName("project_material_id");
             entity.Property(e => e.CifPrice).HasColumnName("cif_price");
+            entity.Property(e => e.HandlingCost).HasColumnName("handling_cost");
             entity.Property(e => e.LastModified)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("TIMESTAMP")
@@ -334,7 +384,7 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.ModuleId).HasColumnName("module_id");
             entity.Property(e => e.ProjectId).HasColumnName("project_id");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
-            entity.Property(e => e.TaxStatus).HasColumnName("tax_status");
+            entity.Property(e => e.TaxRate).HasColumnName("tax_rate");
             entity.Property(e => e.UnitPrice).HasColumnName("unit_price");
 
             entity.HasOne(d => d.Material).WithMany(p => p.ProjectMaterials)
@@ -408,6 +458,38 @@ public partial class AlphaDbContext : DbContext
             entity.Property(e => e.Description)
                 .HasColumnType("INTEGER")
                 .HasColumnName("description");
+        });
+
+        modelBuilder.Entity<TaxRate>(entity =>
+        {
+            entity.ToTable("Tax_Rates");
+
+            entity.HasIndex(e => e.TaxRateId, "IX_Tax_Rates_tax_rate_id").IsUnique();
+
+            entity.Property(e => e.TaxRateId).HasColumnName("tax_rate_id");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.LastModified)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("TIMESTAMP")
+                .HasColumnName("last_modified");
+            entity.Property(e => e.Rate).HasColumnName("rate");
+        });
+
+        modelBuilder.Entity<TransportationRate>(entity =>
+        {
+            entity.HasKey(e => e.RateId);
+
+            entity.ToTable("Transportation_Rates");
+
+            entity.HasIndex(e => e.RateId, "IX_Transportation_Rates_rate_id").IsUnique();
+
+            entity.Property(e => e.RateId).HasColumnName("rate_id");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.LastModified)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("TIMESTAMP")
+                .HasColumnName("last_modified");
+            entity.Property(e => e.RatePerKm).HasColumnName("rate_per_km");
         });
 
         OnModelCreatingPartial(modelBuilder);

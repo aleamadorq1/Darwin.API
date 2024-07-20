@@ -1,6 +1,4 @@
-﻿using System;
-using Darwin.API.Dtos;
-using Darwin.API.Models;
+﻿using Darwin.API.Dtos;
 using Darwin.API.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,6 +20,30 @@ namespace Darwin.API.Controllers
         {
             return Ok(await _SystemService.GetAllSystems());
         }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<SystemDto>> GetSystemById(int id)
+        {
+            return Ok(await _SystemService.GetSystemById(id));
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<SystemDto>> AddSystem(SystemDto system)
+        {
+            return Ok(await _SystemService.AddSystem(system));
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult<SystemDto>> UpdateSystem(int id, SystemDto system)
+        {
+            if (id != system.SystemId)
+            {
+                return BadRequest();
+            }
+
+            return Ok(await _SystemService.UpdateSystem(system));
+        }
+
 
     }
 }

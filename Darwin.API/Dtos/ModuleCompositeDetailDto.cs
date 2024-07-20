@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-namespace Darwin.API.Dtos
+﻿namespace Darwin.API.Dtos
 {
     public class ModuleCompositeDetailDto
     {

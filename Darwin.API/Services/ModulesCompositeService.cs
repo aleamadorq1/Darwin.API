@@ -1,9 +1,5 @@
-﻿using System;
-using Darwin.API.Dtos;
+﻿using Darwin.API.Dtos;
 using Darwin.API.Models;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Darwin.API.Repositories;
 
 namespace Darwin.API.Services
@@ -70,8 +66,8 @@ namespace Darwin.API.Services
         {
             var newModuleComposite = new ModulesComposite
             {
-                CompositeName = modulesComposite.CompositeName,
-                Description = modulesComposite.Description,
+                CompositeName = modulesComposite.CompositeName ?? "",
+                Description = modulesComposite.Description ?? "",
                 ModuleCompositeDetails = modulesComposite.ModuleCompositeDetails.Select(mcd => new ModuleCompositeDetail
                 {
                     ModuleId = mcd.ModuleId,
@@ -89,8 +85,8 @@ namespace Darwin.API.Services
             var existingModulesComposite = await _modulesCompositeRepository.GetByIdAsync(modulesComposite.ModuleCompositeId);
             if (existingModulesComposite == null) return new ModulesCompositeDto();
 
-            existingModulesComposite.CompositeName = modulesComposite.CompositeName;
-            existingModulesComposite.Description = modulesComposite.Description;
+            existingModulesComposite.CompositeName = modulesComposite.CompositeName ?? existingModulesComposite.CompositeName;
+            existingModulesComposite.Description = modulesComposite.Description ?? existingModulesComposite.Description;
 
             var updatedModulesComposite = await _modulesCompositeRepository.UpdateAsync(existingModulesComposite);
 
@@ -113,7 +109,7 @@ namespace Darwin.API.Services
             }
 
             // Add new details
-            foreach (var moduleCompositeDetail in modulesComposite.ModuleCompositeDetails)
+            foreach (var moduleCompositeDetail in modulesComposite.ModuleCompositeDetails ?? new List<ModuleCompositeDetailDto>())
             {
                 if (!existingModuleCompositeDetails.Any(mcd => mcd.ModuleCompositeDetailId == moduleCompositeDetail.ModuleCompositeDetailId))
                 {
